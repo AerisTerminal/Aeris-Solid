@@ -1,0 +1,102 @@
+.app-shell {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  height: 100%;
+  background: var(--surface);
+}
+
+.app-shell[data-platform="desktop"] {
+  background: var(--surface-backdrop);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.app-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-right: 6px;
+}
+
+.picker {
+  background: var(--surface-secondary);
+  color: var(--text-default);
+  border: var(--border-width) solid var(--border-secondary);
+  border-radius: var(--radius-small);
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.picker:hover {
+  background: var(--hover-bg);
+}
+
+.session-chip {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: var(--radius-small);
+  background: var(--surface-secondary);
+  border: var(--border-width) solid var(--border-secondary);
+}
+
+.session-live {
+  color: var(--text-positive);
+}
+
+.session-connecting,
+.session-reconnecting {
+  color: var(--text-warning);
+}
+
+.session-failed {
+  color: var(--text-negative);
+}
+
+.session-stopped {
+  color: var(--text-muted);
+}
+
+.app-failure {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--negative-subtle);
+  color: var(--text-default);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.failure-kind {
+  font-size: 11px;
+  color: var(--text-negative);
+  border: var(--border-width) solid var(--border-secondary);
+  border-radius: var(--radius-small);
+  padding: 1px 6px;
+  background: var(--surface-secondary);
+}
+
+.app-main {
+  /* The failure banner is conditional; pin main to the 1fr row either way. */
+  grid-row: 3;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 4px;
+  padding: 4px;
+  min-height: 0;
+}
+
+.pane {
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-small);
+  overflow: hidden;
+}

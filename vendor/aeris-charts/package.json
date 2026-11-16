@@ -1,0 +1,25 @@
+{
+  "name": "@aeristerminal/aeris-charts",
+  "version": "0.15.0",
+  "type": "module",
+  "description": "Aeris charting SDK powered by Rust and WebAssembly. Vendored standard-variant build of AerisTerminal/aeris-charts at the revision recorded in REVISION.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AerisTerminal/aeris-charts.git",
+    "directory": "packages/charts"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./wasm": "./dist/aeris_charts_wasm_bg.wasm",
+    "./design.css": "./dist/aeris_charts.css"
+  },
+  "sideEffects": [
+    "./dist/aeris_charts.css"
+  ]
+}

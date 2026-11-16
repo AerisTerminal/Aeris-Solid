@@ -1,0 +1,17 @@
+[package]
+name = "aeris_provider_kit"
+description = "Shared adapter parts: WebSocket client, rate budget, clock."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aeris_domain.workspace = true
+aeris_provider_api.workspace = true
+thiserror.workspace = true
+tungstenite.workspace = true
+ureq.workspace = true
+
+[lints]
+workspace = true

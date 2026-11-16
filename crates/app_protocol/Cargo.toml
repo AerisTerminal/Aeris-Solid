@@ -1,0 +1,18 @@
+[package]
+name = "aeris_app_protocol"
+description = "Every message between backend and UI; generates the TypeScript types."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aeris_domain.workspace = true
+serde.workspace = true
+ts-rs.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

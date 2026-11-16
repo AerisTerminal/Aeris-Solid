@@ -1,0 +1,10 @@
+[package]
+name = "aeris_domain"
+description = "Instruments, fixed-point prices, time, IDs and the market feed contract. No I/O."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

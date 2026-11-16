@@ -1,0 +1,15 @@
+[package]
+name = "aeris_market_runtime"
+description = "Market owner: sessions, demand, history, candles, order books, recording."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aeris_domain.workspace = true
+aeris_provider_api.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

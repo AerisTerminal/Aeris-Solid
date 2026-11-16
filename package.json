@@ -1,0 +1,38 @@
+{
+  "name": "aeris-solid",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "tauri": "tauri",
+    "check": "biome check src && tsc --noEmit && depcruise src --config .dependency-cruiser.cjs",
+    "test": "bun test",
+    "format": "biome check --write src",
+    "generate:protocol": "cargo test -p aeris_app_protocol"
+  },
+  "dependencies": {
+    "@aeristerminal/aeris-charts": "file:vendor/aeris-charts",
+    "@kobalte/core": "0.13.14",
+    "@solidjs/router": "1.0.3",
+    "@tanstack/solid-query": "5.107.1",
+    "@tanstack/solid-table": "9.3.1",
+    "@tanstack/solid-virtual": "3.13.53",
+    "@tauri-apps/api": "^2.12.4",
+    "solid-js": "1.9.19",
+    "tailwindcss": "4.3.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@swc/core": "1.16.22",
+    "@tailwindcss/vite": "4.3.5",
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/bun": "^1.4.4",
+    "dependency-cruiser": "18.7.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vite-plugin-solid": "2.11.16"
+  }
+}

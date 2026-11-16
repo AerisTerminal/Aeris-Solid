@@ -1,0 +1,19 @@
+[package]
+name = "aeris_app_core"
+description = "Composition: builds the runtimes, registers providers, routes UI commands, batches per-frame updates."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+aeris_domain.workspace = true
+aeris_provider_api.workspace = true
+aeris_provider_kit.workspace = true
+aeris_provider_hyperliquid.workspace = true
+aeris_market_runtime.workspace = true
+aeris_app_protocol.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

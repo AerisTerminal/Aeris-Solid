@@ -1,0 +1,36 @@
+[package]
+name = "aeris-solid"
+version = "0.1.0"
+description = "Aeris desktop shell: Tauri commands and channels over app_core. No logic."
+edition = "2024"
+rust-version = "1.99.1"
+publish = false
+
+# Own workspace: the desktop shell keeps its own Cargo.lock.
+[workspace]
+
+[lib]
+name = "aeris_solid_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+aeris_app_core = { path = "../crates/app_core" }
+aeris_app_protocol = { path = "../crates/app_protocol" }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

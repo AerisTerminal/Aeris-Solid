@@ -1,0 +1,47 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/domain",
+    "crates/provider_api",
+    "crates/provider_kit",
+    "crates/providers/hyperliquid",
+    "crates/market_runtime",
+    "crates/app_protocol",
+    "crates/app_core",
+    "tools/arch_check",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+publish = false
+
+[workspace.dependencies]
+aeris_domain = { path = "crates/domain" }
+aeris_provider_api = { path = "crates/provider_api" }
+aeris_provider_kit = { path = "crates/provider_kit" }
+aeris_provider_hyperliquid = { path = "crates/providers/hyperliquid" }
+aeris_market_runtime = { path = "crates/market_runtime" }
+aeris_app_protocol = { path = "crates/app_protocol" }
+aeris_app_core = { path = "crates/app_core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+thiserror = "2"
+tracing = "0.1"
+ts-rs = "12"
+tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
+ureq = { version = "3", features = ["json"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true

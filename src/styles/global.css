@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "./themes.css";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text-default);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.numeric {
+  font-family: Manrope, Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}

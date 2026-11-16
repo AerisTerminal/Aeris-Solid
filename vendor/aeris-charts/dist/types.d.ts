@@ -1,0 +1,5087 @@
+/**
+ * Public data, option, and handle types for `@aeristerminal/aeris-charts`. The original snake-case
+ * methods remain canonical and supported; common browser lifecycle methods also expose camel-case
+ * aliases on the same handles. Extracted from `index.ts`.
+ */
+import type { pane_primitive, pane_primitive_handle, series_primitive, series_primitive_handle } from "./primitives.js";
+import type { canvas_primitive, canvas_primitive_handle } from "./canvas_plugins.js";
+import type { custom_series_pane_view } from "./custom_series.js";
+import type { accessibility_handle, accessibility_options } from "./accessibility.js";
+/**
+ * A series kind. Maps to the engine's numeric kind at the boundary. `"custom"` is only ever
+ * REPORTED (by {@link series_api.series_type} for a custom series); it is not accepted by
+ * {@link chart_api.add_series} — custom series are created with {@link chart_api.add_custom_series}.
+ */
+export type feature_series_kind = "grouped_bars" | "heatmap" | "hlc_area" | "pretty_histogram" | "background_shade" | "stacked_area" | "stacked_bars" | "whisker_box";
+export type series_kind = "candlestick" | "bar" | "line" | "area" | "histogram" | "baseline" | "footprint" | "tpo"
+/** @deprecated Use an ordinary `"area"` series with `enable_brushable_area_interaction()`. */
+ | "brushable_area" | feature_series_kind | "custom";
+/** General series available through the shared chart engine. */
+export type general_series_kind = "xy_line" | "xy_area" | "range_area" | "range_bar" | "error_bar" | "column" | "histogram" | "horizontal_bar" | "box_plot" | "heatmap_grid" | "scatter" | "bubble" | "pie" | "radar" | "polar_area" | "radial_bar" | "waterfall" | "bullet" | general_stats_series_kind;
+/** Complete-build statistics families; absent from the standard build. */
+export type general_stats_series_kind = "violin" | "density_curve" | "ridgeline" | "strip_plot" | "beeswarm" | "dot_plot" | "ecdf" | "qq_plot" | "hexbin" | "contour" | "parallel_coordinates" | "scatter_matrix";
+export type general_row_id = string | number;
+export interface general_xy_row {
+    id?: general_row_id;
+    x: string | number | Date;
+    y: number | null;
+    /** Optional custom text for an enabled data label; omitted labels use the numeric Y value. */
+    label?: string;
+    /** Optional CSS color for this mark; paths retain the series stroke. */
+    color?: string;
+    /** Optional symbol for point marks. */
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+}
+export interface bubble_row extends general_xy_row {
+    /** Bubble area channel. Missing values remain queryable but emit no mark. */
+    size: number | null;
+}
+export interface range_area_row {
+    id?: general_row_id;
+    x: string | number | Date;
+    low: number | null;
+    high: number | null;
+    /** Optional custom text for an enabled data label; omitted labels use the high value. */
+    label?: string;
+    /** Optional CSS color for this mark; paths retain the series stroke. */
+    color?: string;
+    /** Optional symbol for point marks. */
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+}
+/** Numeric/temporal/category observation with error bounds supported by the bound X domain. */
+export interface error_bar_row extends general_xy_row {
+    x: number | string | Date;
+    x_low?: number | Date | null;
+    x_high?: number | Date | null;
+    y_low?: number | null;
+    y_high?: number | null;
+}
+export interface box_plot_row {
+    id?: general_row_id;
+    x: string;
+    min: number | null;
+    q1: number | null;
+    median: number | null;
+    q3: number | null;
+    max: number | null;
+    label?: string;
+    /** Optional CSS color for this mark; paths retain the series stroke. */
+    color?: string;
+    /** Optional symbol for point marks. */
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+}
+/**
+ * One waterfall step. A relative row adds its signed `y` to the running total; subtotal and
+ * total rows draw the running total from zero and ignore `y`, which may be null.
+ */
+export interface waterfall_row {
+    id?: general_row_id;
+    x: string;
+    y: number | null;
+    /** Step role (default `relative`). */
+    step?: "relative" | "subtotal" | "total";
+    /** Optional custom text for an enabled data label; omitted labels use the bar's value. */
+    label?: string;
+    /** Optional CSS color for this bar, overriding the step color. */
+    color?: string;
+    /** Optional symbol for point marks. */
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+}
+/** One bullet: the measure bar `y`, a target marker, and optional comparative and band context. */
+export interface bullet_row {
+    id?: general_row_id;
+    x: string;
+    y: number | null;
+    target: number | null;
+    /** Secondary measure drawn as a thinner bar inside the measure, such as last year's value. */
+    comparative?: number | null;
+    /**
+     * Up to three ascending qualitative band thresholds (for example poor, satisfactory, good).
+     * Each band spans from the previous threshold, or zero, to its own threshold.
+     */
+    bands?: readonly (number | null)[];
+    label?: string;
+    /** Optional CSS color for this measure bar. */
+    color?: string;
+    /** Optional symbol for point marks. */
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+}
+export interface heatmap_grid_row {
+    id?: general_row_id;
+    x: string | number | Date;
+    y: string | number;
+    value: number | null;
+    label?: string;
+    /** Optional CSS color for this mark; paths retain the series stroke. */
+    color?: string;
+    /** Optional symbol for point marks. */
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+}
+/** One histogram sample. The engine bins samples; a null value is retained but not counted. */
+export interface histogram_row {
+    id?: general_row_id;
+    value: number | null;
+}
+/**
+ * One parallel_coordinates/scatter_matrix record: every non-`id` key is a numeric axis/field.
+ * All rows must carry a finite number for every field; field order follows first appearance.
+ */
+export interface matrix_row {
+    id?: general_row_id;
+    [field: string]: number | string | undefined;
+}
+export interface numeric_xy_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    x: Float64Array;
+    y: Float64Array;
+    y_valid?: Uint8Array;
+}
+export interface bubble_columns extends numeric_xy_columns {
+    size: Float64Array;
+    size_valid?: Uint8Array;
+}
+export interface numeric_range_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    x: Float64Array;
+    low: Float64Array;
+    low_valid?: Uint8Array;
+    high: Float64Array;
+    high_valid?: Uint8Array;
+}
+/** Each bound has its own missing-value mask; a missing center Y emits no mark. */
+export interface numeric_error_columns extends numeric_xy_columns {
+    x_low: Float64Array;
+    x_low_valid?: Uint8Array;
+    x_high: Float64Array;
+    x_high_valid?: Uint8Array;
+    y_low: Float64Array;
+    y_low_valid?: Uint8Array;
+    y_high: Float64Array;
+    y_high_valid?: Uint8Array;
+}
+export interface temporal_xy_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    /** Whole epoch-millisecond values carried as JS-safe numbers. */
+    x_epoch_ms: Float64Array;
+    y: Float64Array;
+    y_valid?: Uint8Array;
+}
+export interface temporal_range_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    /** Whole epoch-millisecond values carried as JS-safe numbers. */
+    x_epoch_ms: Float64Array;
+    low: Float64Array;
+    low_valid?: Uint8Array;
+    high: Float64Array;
+    high_valid?: Uint8Array;
+}
+/** Temporal error bounds are whole epoch-millisecond values carried as JS-safe numbers. */
+export interface temporal_error_columns extends temporal_xy_columns {
+    x_low_epoch_ms: Float64Array;
+    x_low_valid?: Uint8Array;
+    x_high_epoch_ms: Float64Array;
+    x_high_valid?: Uint8Array;
+    y_low: Float64Array;
+    y_low_valid?: Uint8Array;
+    y_high: Float64Array;
+    y_high_valid?: Uint8Array;
+}
+export interface category_xy_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    categories: readonly string[];
+    category_indices: Uint32Array;
+    y: Float64Array;
+    y_valid?: Uint8Array;
+}
+export interface category_range_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    categories: readonly string[];
+    category_indices: Uint32Array;
+    low: Float64Array;
+    low_valid?: Uint8Array;
+    high: Float64Array;
+    high_valid?: Uint8Array;
+}
+/** Category-centered error bars have Y bounds only; X uncertainty requires numeric X. */
+export interface category_error_columns extends category_xy_columns {
+    y_low: Float64Array;
+    y_low_valid?: Uint8Array;
+    y_high: Float64Array;
+    y_high_valid?: Uint8Array;
+}
+export interface category_box_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    categories: readonly string[];
+    category_indices: Uint32Array;
+    min: Float64Array;
+    min_valid?: Uint8Array;
+    q1: Float64Array;
+    q1_valid?: Uint8Array;
+    median: Float64Array;
+    median_valid?: Uint8Array;
+    q3: Float64Array;
+    q3_valid?: Uint8Array;
+    max: Float64Array;
+    max_valid?: Uint8Array;
+}
+/** Category waterfall steps; `steps` holds one code per row: 0 relative, 1 subtotal, 2 total. */
+export interface category_waterfall_columns extends category_xy_columns {
+    steps: Uint8Array;
+}
+/** Category bullets; `y` is the measure. Omitted comparative or band columns are missing values. */
+export interface category_bullet_columns extends category_xy_columns {
+    target: Float64Array;
+    target_valid?: Uint8Array;
+    comparative?: Float64Array;
+    comparative_valid?: Uint8Array;
+    /** Band-major thresholds: every row's first band, then every second, then every third (3 x rows). */
+    bands?: Float64Array;
+    bands_valid?: Uint8Array;
+}
+/** Typed histogram samples; `values_valid` marks missing samples with 0. */
+export interface histogram_columns {
+    ids?: readonly general_row_id[];
+    values: Float64Array;
+    values_valid?: Uint8Array;
+}
+/** Parallel coordinates / scatter-matrix columns: one equal-length column per field. */
+export interface general_matrix_columns {
+    ids?: readonly general_row_id[];
+    matrix_fields: readonly string[];
+    matrix_columns: readonly (readonly number[])[];
+}
+export interface category_heatmap_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    x_categories: readonly string[];
+    x_category_indices: Uint32Array;
+    y_categories: readonly string[];
+    y_category_indices: Uint32Array;
+    value: Float64Array;
+    value_valid?: Uint8Array;
+}
+export interface numeric_heatmap_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    x: Float64Array;
+    y_coordinate: Float64Array;
+    value: Float64Array;
+    value_valid?: Uint8Array;
+}
+export interface temporal_heatmap_columns {
+    ids?: readonly general_row_id[];
+    labels?: readonly (string | null)[];
+    /** Sparse CSS color override for each row. */
+    colors?: readonly (string | null)[];
+    /** Sparse point-symbol override for each row. */
+    symbols?: readonly ("circle" | "square" | "diamond" | "triangle" | null)[];
+    x_epoch_ms: Float64Array;
+    y_coordinate: Float64Array;
+    value: Float64Array;
+    value_valid?: Uint8Array;
+}
+export type horizontal_domain_options = {
+    type: "financial_time";
+} | {
+    type: "continuous";
+    scale?: "linear" | "log" | "symlog";
+} | {
+    type: "temporal";
+} | {
+    type: "category";
+    scale?: "band" | "point";
+} | {
+    type: "polar";
+} | {
+    type: "layout";
+};
+export interface general_pane_options {
+    preserve_empty?: boolean;
+    horizontal_domain: horizontal_domain_options;
+}
+/** Creation-time topology for the chart's canonical first pane. */
+export interface initial_pane_options {
+    horizontal_domain: horizontal_domain_options;
+}
+export type layout_series_kind = "funnel" | "treemap" | "sankey" | "sunburst" | "gantt" | "calendar_heatmap" | "marimekko"
+/** Complete build only. */
+ | "gauge"
+/** Complete build only; takes `graph` data. */
+ | "chord"
+/** Complete build only; takes `hierarchy` data. Nodes with children fold on click or Enter. */
+ | "tree"
+/** Complete build only; takes `hierarchy` data. Nodes with children fold on click or Enter. */
+ | "dendrogram"
+/** Complete build only; takes `hierarchy` data. */
+ | "circle_packing"
+/** Complete build only; takes `hierarchy` data. */
+ | "icicle"
+/**
+ * Complete build only; takes `graph` data. Nodes drag and pin, empty space pans, and the
+ * wheel or a pinch zooms around the pointer.
+ */
+ | "network"
+/**
+ * Complete build only; takes `sets` data. Two and three sets lay out area-proportionally;
+ * more sets are a labelled approximation whose overlaps carry no area meaning.
+ */
+ | "venn"
+/** Complete build only; takes `words` data. */
+ | "word_cloud"
+/** Complete build only; takes `geo` data and fills each polygon feature by its value. */
+ | "choropleth"
+/**
+ * Complete build only; takes `geo_points` data. Bubbles project through the pane's
+ * choropleth base map when it has one and pan and zoom with it.
+ */
+ | "bubble_map"
+/**
+ * Complete build only; takes `geo_links` data. Links draw as great-circle arcs through the
+ * pane's choropleth base map when it has one and pan and zoom with it.
+ */
+ | "flow_map"
+/**
+ * Complete build only; takes `points_3d` data. Boxes rise from zero to each point's `z` in the
+ * pane's shared 3D axis box. Every 3D series of a pane depth-sorts together under one camera:
+ * dragging orbits it, the wheel or a pinch moves it closer, and arrows, `+`/`-` and Home
+ * turn, zoom and reset it.
+ */
+ | "bar_3d"
+/** Complete build only; takes `points_3d` data and draws a screen-sized symbol per point. */
+ | "scatter_3d"
+/** Complete build only; takes `points_3d` data and joins the points in input order. */
+ | "line_3d"
+/** Complete build only; takes `surface` data: a shaded, height-colored grid. */
+ | "surface_3d";
+/**
+ * `point` is a 3D bar, symbol or line vertex (row = point index); `sample` is a 3D surface grid
+ * sample (row = `y index * x count + x index`).
+ */
+export type layout_element = "stage" | "node" | "link" | "task" | "day" | "cell" | "band" | "progress" | "pointer" | "region" | "word" | "feature" | "bubble" | "point" | "sample";
+/**
+ * d3-geo 3 projection, fitted to the plot inset by `padding` (default 8 CSS px).
+ * `rotate` is `[lambda, phi, gamma]` degrees; `center` moves a longitude/latitude to the
+ * middle at the fitted scale; `parallels` (default `[0, 60]`) are the conic standard
+ * parallels; `identity` takes planar coordinates with y up. Defaults to `equal_earth`.
+ */
+export interface geo_projection {
+    type?: "mercator" | "equal_earth" | "natural_earth1" | "orthographic" | "conic_equal_area" | "identity";
+    rotate?: readonly [number, number, number];
+    center?: readonly [number, number] | null;
+    parallels?: readonly [number, number];
+    padding?: number;
+}
+/**
+ * Where a map mark sits: a `[longitude, latitude]` position in degrees (planar `[x, y]` under
+ * the identity projection), or the id of a base-map feature whose centroid places it.
+ */
+export type geo_anchor = readonly [number, number] | string;
+export type layout_input = {
+    type: "funnel";
+    stages: readonly {
+        id: string;
+        label: string;
+        value: number;
+    }[];
+} | {
+    type: "hierarchy";
+    /** `color_value` is a signed leaf metric (for example a percent change) that shades a treemap cell up or down by magnitude. */
+    nodes: readonly {
+        id: string;
+        parent: string | null;
+        label: string;
+        value: number | null;
+        color_value?: number;
+    }[];
+} | {
+    type: "flow";
+    nodes: readonly {
+        id: string;
+        label: string;
+    }[];
+    links: readonly {
+        source: string;
+        target: string;
+        value: number;
+    }[];
+} | {
+    type: "gantt";
+    /**
+     * Times are UTC epoch milliseconds; `end === start` is a milestone. `progress` is the
+     * completed fraction in [0, 1]. Tasks sharing a `group` must be contiguous.
+     * `dependencies` lists finish-to-start predecessor task IDs.
+     */
+    tasks: readonly {
+        id: string;
+        label: string;
+        start: number;
+        end: number;
+        progress?: number;
+        group?: string | null;
+        dependencies?: readonly string[];
+    }[];
+    /** Host-supplied current instant for the "now" line; the engine never reads a clock. */
+    now?: number | null;
+} | {
+    type: "calendar";
+    /** Each `date` is any instant inside its UTC day, in epoch milliseconds. */
+    days: readonly {
+        date: number;
+        value: number;
+    }[];
+    /** Weekday of the first row: 0 = Sunday through 6 = Saturday. */
+    week_start?: number;
+    /** Seven weekday labels beginning with Sunday; omit for English initials. */
+    day_labels?: readonly string[];
+    low_color?: string | null;
+    high_color?: string | null;
+} | {
+    type: "mosaic";
+    cells: readonly {
+        column: string;
+        segment: string;
+        value: number;
+    }[];
+} | {
+    type: "gauge";
+    /** Values outside `min..max` clamp to the track ends. */
+    value: number;
+    /** Defaults to 0. */
+    min?: number;
+    /** Defaults to 100. */
+    max?: number;
+    label?: string;
+    /** Suffix of the value text, such as `%`. */
+    unit?: string;
+    /** Fixed fraction digits (0-10) of the value text; omit for the shortest exact form. */
+    decimals?: number | null;
+    /** At most 32 bands with ascending `to` inside `min..max`; each starts where the previous ends. */
+    bands?: readonly {
+        to: number;
+        color: string;
+        label?: string;
+    }[];
+    /** Paint a progress arc from `min` to the value. */
+    progress?: boolean;
+} | {
+    type: "graph";
+    /** `value` overrides the node's incoming plus outgoing edge value; `x`/`y` are given together or not at all. */
+    nodes: readonly {
+        id: string;
+        label: string;
+        category?: string | null;
+        value?: number | null;
+        x?: number | null;
+        y?: number | null;
+    }[];
+    /** Directed edges; cycles and self-links are allowed, a repeated `(source, target)` pair is not. `value` defaults to 1. */
+    edges?: readonly {
+        source: string;
+        target: string;
+        value?: number;
+    }[];
+} | {
+    type: "sets";
+    /**
+     * Exclusive venn regions, venn.js-shaped: `{sets: ["A", "B"], size}` is the area of the
+     * part of A and B that no other listed set covers. Every named set needs its own
+     * single-set region; up to 8 sets and 255 regions.
+     */
+    sets: readonly {
+        sets: readonly string[];
+        size: number;
+        label?: string | null;
+    }[];
+} | {
+    type: "words";
+    /** Up to 500 words; `weight` scales the font size and `color` overrides the series color. */
+    words: readonly {
+        text: string;
+        weight: number;
+        color?: string | null;
+    }[];
+} | ({
+    type: "geo";
+    /**
+     * Feature values by feature id, as `{ id: value }` or `[{ id, value }]`; features
+     * without a value take `missing_color`. At most 4096 features and values.
+     */
+    values?: Readonly<Record<string, number>> | readonly {
+        id: string;
+        value: number;
+    }[];
+    /**
+     * Feature id property; omit to use each feature's `id` (then `#<index>`). Ids must be
+     * unique, so name a unique property when the source repeats ids.
+     */
+    id_property?: string | null;
+    /** Feature label property; defaults to `name`, then the id. */
+    label_property?: string | null;
+    projection?: geo_projection;
+    /**
+     * Value colors: continuous `sequential` (the default; low defaults to the series color at
+     * 20% opacity, high to the series color), `diverging` through `mid_color` at
+     * `midpoint`, or 2-9 `quantize` classes of equal width (`equal_interval`) or equal count
+     * (`quantile`).
+     */
+    scale?: {
+        type: "sequential";
+        low_color?: string | null;
+        high_color?: string | null;
+    } | {
+        type: "diverging";
+        low_color?: string | null;
+        mid_color?: string | null;
+        high_color?: string | null;
+        midpoint?: number;
+    } | {
+        type: "quantize";
+        classes?: number;
+        method?: "equal_interval" | "quantile";
+        low_color?: string | null;
+        high_color?: string | null;
+    };
+    /** Fill of features without a value; defaults to a neutral gray. */
+    missing_color?: string | null;
+} & ({
+    /**
+     * RFC 7946 FeatureCollection, Feature, or Polygon, MultiPolygon, LineString,
+     * MultiLineString, Point or MultiPoint geometry; at most 262,144 positions.
+     */
+    geojson: Readonly<Record<string, unknown>>;
+    topojson?: never;
+} | {
+    /** TopoJSON topology; `object` names the decoded object and may be omitted when there is one. */
+    topojson: Readonly<Record<string, unknown>>;
+    object?: string | null;
+    geojson?: never;
+})) | {
+    type: "geo_points";
+    /**
+     * Bubbles; `value` (non-negative) scales the radius by its square root, and a bubble
+     * without one takes the smallest radius. `label` defaults to the anchoring feature's
+     * label, then the id; `color` overrides the series color.
+     */
+    points: readonly {
+        id: string;
+        at: geo_anchor;
+        label?: string | null;
+        value?: number | null;
+        color?: string | null;
+    }[];
+    symbol?: "circle" | "square" | "diamond" | "triangle";
+    /** Smallest and largest radius in CSS px; default `[3, 24]`. */
+    radius?: readonly [number, number];
+    /** Used only when the pane has no choropleth base map. */
+    projection?: geo_projection;
+} | {
+    type: "geo_links";
+    /**
+     * Great-circle links; `value` (non-negative) scales the width linearly, and a link
+     * without one takes the smallest width. `id` defaults to `#<index>`; endpoint labels
+     * default to the anchoring feature's label, then the coordinates.
+     */
+    links: readonly {
+        id?: string | null;
+        source: geo_anchor;
+        target: geo_anchor;
+        source_label?: string | null;
+        target_label?: string | null;
+        value?: number | null;
+        color?: string | null;
+    }[];
+    /** Smallest and largest width in CSS px; default `[1, 6]`. */
+    width?: readonly [number, number];
+    /** Draw an arrowhead at each visible target. */
+    arrows?: boolean;
+    /** Used only when the pane has no choropleth base map. */
+    projection?: geo_projection;
+} | {
+    type: "points_3d";
+    /**
+     * At most 4,096 points with finite coordinates of magnitude at most 1e15. `label` names a
+     * point in tooltips and accessibility (default: its `x` and `y`); `color` overrides the
+     * series color.
+     */
+    points: readonly {
+        x: number;
+        y: number;
+        z: number;
+        label?: string | null;
+        color?: string | null;
+    }[];
+    /** Axis names; `x` and `y` may list categories, and values on them are category indices. */
+    x_axis?: axis_3d;
+    y_axis?: axis_3d;
+    z_axis?: {
+        name?: string;
+    };
+    /**
+     * Bar footprint in box units (the box is 100 per side), symbol diameter or line width in
+     * CSS px; 0 exclusive through 100. Defaults to 70% of a category band or 60% of the even
+     * point spacing for bars, 10 px symbols and 2 px lines.
+     */
+    size?: number | null;
+} | {
+    type: "surface";
+    /** Strictly increasing grid positions, 2 through 128 per side. */
+    x: readonly number[];
+    y: readonly number[];
+    /** Heights row by row (`z[row * x.length + column]`); `null` leaves a hole. */
+    z: readonly (number | null)[];
+    x_axis?: {
+        name?: string;
+    };
+    y_axis?: {
+        name?: string;
+    };
+    z_axis?: {
+        name?: string;
+    };
+    /**
+     * Up to 9 CSS colors spread from the lowest to the highest height; one paints every height
+     * and empty shades the series color.
+     */
+    colors?: readonly string[];
+    /** Outline every drawn cell; default `true`. */
+    wireframe?: boolean;
+};
+/** One axis of a 3D box: its title and, for `x` and `y`, optional category names. */
+export interface axis_3d {
+    name?: string;
+    categories?: readonly string[];
+}
+/**
+ * Orbit camera of a 3D pane, ECharts GL `viewControl` shaped: `alpha` (-90 to 90) raises the
+ * eye, `beta` (above -180 through 180) turns it around the vertical axis, `distance` (40 to
+ * 400) is the perspective eye distance and `orthographic_size` (20 to 400) the orthographic
+ * view height, both in box units. Defaults: 20, 40, 200, `"perspective"`, 150.
+ */
+export interface camera_3d {
+    alpha?: number;
+    beta?: number;
+    distance?: number;
+    projection?: "perspective" | "orthographic";
+    orthographic_size?: number;
+}
+export interface layout_series_options {
+    pane: number;
+    title?: string;
+    color?: string;
+    /** Show labels only when the engine-measured text fits inside the mark. */
+    data_labels?: boolean;
+    visible?: boolean;
+    /**
+     * Root on the left (`"horizontal"`, the default), on top (`"vertical"`), or at the center
+     * (`"radial"`). Trees and dendrograms accept all three, icicles the first two, and other
+     * families only the default; `options()` reports it for trees, dendrograms and icicles.
+     */
+    hierarchy_orientation?: "horizontal" | "vertical" | "radial";
+    /**
+     * IDs of collapsed tree or dendrogram nodes with children. The chart folds and unfolds nodes
+     * on click and Enter, reports the current set from tree and dendrogram `options()`, and
+     * drops IDs that new data removes.
+     */
+    collapsed?: readonly string[];
+    /**
+     * Network node placement: a d3-force simulation (`"force"`, the default) that animates to
+     * rest, evenly on a circle in node order (`"circular"`), or at each node's `x`/`y`
+     * (`"fixed"`, which requires both on every node). Network series only.
+     */
+    network_layout?: "force" | "circular" | "fixed";
+    /** Rest length of force-layout links in CSS pixels at zoom 1, from 1 to 1000; default 30. */
+    network_link_distance?: number;
+    /**
+     * Network nodes held at layout positions. Dragging a node pins it where it is released;
+     * `options()` reports the current pins and new data drops pins of removed nodes.
+     */
+    pinned?: readonly {
+        id: string;
+        x: number;
+        y: number;
+    }[];
+    /**
+     * Network pan offset in layout units and zoom (0.1 to 10). Panning and zooming update it;
+     * `options()` reports it for network series.
+     */
+    network_view?: {
+        x: number;
+        y: number;
+        zoom: number;
+    };
+    /**
+     * Settled force-layout node positions captured by a state export. Passing them back at
+     * creation restores the layout settled, without re-simulating; `options()` reports them
+     * for network series. Network series only.
+     */
+    positions?: readonly {
+        id: string;
+        x: number;
+        y: number;
+    }[];
+    /**
+     * Map pan and zoom shared by every map series of a pane: `x` and `y` offset the map center
+     * as fractions of the map width and height (at most `0.5 - 0.5 / zoom` either way) and
+     * `zoom` is 1 to 32. Dragging pans a zoomed map, and the wheel or a pinch zooms around the
+     * pointer; `options()` reports it for map series. Map series only.
+     */
+    map_view?: {
+        x: number;
+        y: number;
+        zoom: number;
+    };
+    /**
+     * Camera shared by every 3D series of a pane; the pane's first 3D series sets it and a later
+     * one joins it. Dragging, the wheel, a pinch and the orbit keys update it; `options()` reports
+     * it for 3D series. 3D series only.
+     */
+    camera_3d?: camera_3d;
+    /** Smallest word cloud font size in CSS pixels, 4 to 256; default 10. Word cloud series only. */
+    word_cloud_min_size?: number;
+    /** Largest word cloud font size in CSS pixels, 4 to 256 and no smaller than the minimum; default 48. Word cloud series only. */
+    word_cloud_max_size?: number;
+    /**
+     * Weight-to-font mapping: `"sqrt"` (the default) keeps the painted area linear in the
+     * weight, `"linear"` keeps the font size linear. Word cloud series only.
+     */
+    word_cloud_scaling?: "linear" | "sqrt";
+    /** Rotate every second word by 90 degrees. Word cloud series only. */
+    word_cloud_rotate?: boolean;
+}
+export interface layout_hit {
+    series: number;
+    element: layout_element;
+    row: number;
+    id: string;
+    label: string;
+    value: number | null;
+    title: string;
+}
+export interface layout_accessibility_item {
+    element: layout_element;
+    row: number;
+    id: string;
+    label: string;
+    value: number | null;
+    selected: boolean;
+    /** Present on tree and dendrogram nodes with children: whether their subtree is shown. */
+    expanded?: boolean;
+    /** Present on word cloud words: whether the word was placed or omitted for lack of room. */
+    placed?: boolean;
+}
+export interface layout_accessibility_snapshot {
+    series: number;
+    title: string;
+    total: number;
+    offset: number;
+    items: layout_accessibility_item[];
+    /** Items per grid column (calendar weeks); arrow keys move by row and by column. */
+    grid_stride?: number;
+}
+export interface layout_series_api {
+    readonly id: number;
+    readonly kind: layout_series_kind;
+    set_data(data: layout_input): void;
+    options(): layout_series_options;
+    /**
+     * Collapse, pin and view state change through interaction and the network layout is fixed at
+     * creation, so those are not patch fields.
+     */
+    apply_options(options: Partial<Omit<layout_series_options, "pane" | "collapsed" | "network_layout" | "network_link_distance" | "pinned" | "network_view" | "map_view" | "camera_3d" | "positions" | "word_cloud_min_size" | "word_cloud_max_size" | "word_cloud_scaling" | "word_cloud_rotate">>): void;
+    set_visible(visible: boolean): void;
+    subscribe_data_changed(handler: () => void): void;
+    unsubscribe_data_changed(handler: () => void): void;
+    accessibility_snapshot(offset?: number, limit?: number): layout_accessibility_snapshot;
+    remove(): void;
+}
+export type axis_dimension = "x" | "y" | "angle" | "radius";
+export type axis_position = "top" | "bottom" | "left" | "right";
+export type general_scale_type = "linear" | "log" | "symlog" | "temporal" | "band" | "point" | "radial_linear" | "angular_category";
+export type general_axis_tick = {
+    type: "numeric";
+    value: number;
+    label?: string;
+} | {
+    type: "temporal";
+    value: number | Date;
+    label?: string;
+} | {
+    type: "category";
+    value: string;
+    label?: string;
+};
+export interface general_axis_options {
+    id: string;
+    pane: number;
+    dimension: axis_dimension;
+    position?: axis_position;
+    scale: general_scale_type;
+    domain?: "auto" | readonly [number | Date, number | Date] | readonly string[];
+    reverse?: boolean;
+    visible?: boolean;
+    title?: string;
+    tick_count?: number;
+    /** Explicit tick values. Optional labels are retained by the engine and shared by every backend. */
+    ticks?: readonly general_axis_tick[];
+    min_tick_gap?: number;
+    /** Clockwise degrees for horizontal tick labels, from -90 to 90. */
+    tick_angle?: number;
+    /** Symmetric numeric-domain expansion as a fraction of transformed span (0 to 1). */
+    domain_padding?: number;
+    band_padding_inner?: number;
+    band_padding_outer?: number;
+    /** Draw a solid zero rule when zero is inside a numeric domain. */
+    zero_line?: boolean;
+    /** Draw this axis's ticks as plot grid rules, subject to the chart-wide grid direction. */
+    grid_visible?: boolean;
+    /** Draw the axis line along the plot edge. Ticks and labels are unaffected. */
+    line_visible?: boolean;
+}
+/** Options that can change without replacing an axis or its scale/domain family. */
+export type general_axis_presentation_options = Omit<general_axis_options, "id" | "pane" | "dimension" | "scale">;
+export type general_reference_value = number | string | Date;
+export type general_reference_options = {
+    kind: "line";
+    pane: number;
+    axis_id: string;
+    value: general_reference_value;
+    color?: string;
+    line_width?: number;
+    /** Include the reference value in an automatic axis domain. Default false. */
+    extend_domain?: boolean;
+} | {
+    kind: "dot";
+    pane: number;
+    x_axis_id: string;
+    y_axis_id: string;
+    x: general_reference_value;
+    y: general_reference_value;
+    color?: string;
+    radius?: number;
+    /** Include both coordinates in automatic axis domains. Default false. */
+    extend_domain?: boolean;
+} | {
+    kind: "region";
+    pane: number;
+    x_axis_id: string;
+    y_axis_id: string;
+    /** Omit X bounds to span the plot width; either endpoint may be omitted for a plot-edge band. */
+    x_from?: general_reference_value;
+    x_to?: general_reference_value;
+    /** Omit Y bounds to span the plot height; either endpoint may be omitted for a plot-edge band. */
+    y_from?: general_reference_value;
+    y_to?: general_reference_value;
+    fill_color?: string;
+    /** Include supplied region bounds in automatic axis domains. Default false. */
+    extend_domain?: boolean;
+};
+export interface general_reference_api {
+    readonly id: number;
+    options(): general_reference_options;
+    /** Replace validated reference options while retaining this handle and its ordered frame slot. */
+    apply_options(options: general_reference_options): void;
+    remove(): boolean;
+}
+export interface general_series_options {
+    pane: number;
+    x_axis_id: string;
+    y_axis_id: string;
+    visible?: boolean;
+    title?: string;
+    color?: string;
+    /** Path-marker/scatter radius or error-bar cap half-width in CSS pixels. Bubble radii come from sqrt(size). */
+    point_radius?: number;
+    /** Draw markers at line, area, or range-area data points (default false). */
+    point_markers?: boolean;
+    /** Marker shape for scatter and opt-in path markers (default `circle`). */
+    point_symbol?: "circle" | "square" | "diamond" | "triangle";
+    /** Stroke width for line, area, range-area, error-bar, and box-plot marks in CSS pixels (default 2). */
+    line_width?: number;
+    /** Stroke pattern for line, area, and range-area paths (default `solid`). */
+    line_style?: "solid" | "dotted" | "dashed";
+    /** Path interpolation for line, area, and range-area boundaries (default `linear`). `step` preserves the legacy step-after shape. */
+    interpolation?: "linear" | "step" | "step_before" | "step_middle" | "step_after" | "curved" | "monotone" | "natural";
+    /** Bridge missing rows in line, area, and range-area paths; transform-invalid rows remain gaps. */
+    connect_missing?: boolean;
+    /** Area fill opacity from 0 through 1 (default `72 / 255`). */
+    fill_opacity?: number;
+    /**
+     * Polar sector sweep and normalized radii. Pie and radial-bar angles are radians in the
+     * Recharts convention: zero at three o'clock, positive counter-clockwise, so the default
+     * `0`..`2π` matches Recharts `startAngle=0`/`endAngle=360`. An end below the start sweeps
+     * clockwise. Polar-area sweeps scale its twelve o'clock, clockwise category spokes.
+     */
+    polar?: {
+        start_angle?: number;
+        end_angle?: number;
+        inner_radius?: number;
+        outer_radius?: number;
+        pad_angle?: number;
+    };
+    /** Top-to-bottom CSS fill colors for area and bar families; area stop alpha is multiplied by `fill_opacity`. */
+    fill_gradient?: readonly [string, string];
+    /** Explicit numeric fill baseline for an unstacked `xy_area`. */
+    baseline_value?: number;
+    /** Baseline for an unstacked `xy_area`; domain bounds follow the effective Y-axis view. */
+    baseline_policy?: "zero" | "domain_min" | "domain_max";
+    /** Show bounded, engine-placed value labels beside visible marks. */
+    data_labels?: boolean;
+    /** Empty space across each bar slot in CSS pixels (default 0, range 0..64). */
+    bar_gap?: number;
+    /** Maximum bar thickness in CSS pixels (range 1..512); omitted fills the available slot. */
+    bar_max_width?: number;
+    /** Radius of exposed bar corners in CSS pixels (default 0, range 0..64). */
+    bar_corner_radius?: number;
+    /** Fixed heatmap value range for color intensity; omitted scales the visible cells. */
+    heatmap_value_domain?: readonly [number, number];
+    /** CSS color for the low end of heatmap intensity. */
+    heatmap_low_color?: string;
+    /** CSS color for the high end of heatmap intensity. */
+    heatmap_high_color?: string;
+    /** CSS fill color for the box plot's interquartile rectangle. */
+    box_fill_color?: string;
+    /** CSS stroke color for the box plot's median line. */
+    box_median_color?: string;
+    /** Bar-only grouping key. Matching columns or horizontal bars share their category band side-by-side. */
+    group_id?: string;
+    /** Column/horizontal_bar/xy_area stack key. Bars accumulate by category; areas by exact X identity. */
+    stack_id?: string;
+    /** Bar/xy_area stack policy. Nondefault modes require `stack_id`; `wiggle` minimizes weighted baseline movement. */
+    stack_mode?: "normal" | "cumulative" | "silhouette" | "wiggle" | "percent" | "positive";
+    /** Engine-side binning for `histogram` series; other kinds reject non-default values. */
+    histogram?: general_histogram_options;
+    /**
+     * Statistics tuning for the complete-build statistics families (violin, density_curve,
+     * ridgeline, strip_plot, beeswarm, dot_plot, ecdf, qq_plot, hexbin, contour,
+     * parallel_coordinates, scatter_matrix); other kinds reject non-default values.
+     */
+    stats?: general_stats_options;
+    /**
+     * Bar mark shape (default `bar`). `lollipop` draws a stem from the baseline with a point
+     * symbol at the value on unstacked `column`/`horizontal_bar` series; `dumbbell` draws point
+     * symbols at both ends of a `range_bar` joined by a connector. `point_symbol` and
+     * `point_radius` style the markers.
+     */
+    bar_mark?: "bar" | "lollipop" | "dumbbell";
+    /** Step colors and connector lines of a `waterfall` series. */
+    waterfall?: general_waterfall_options;
+    /**
+     * `xy_line` labels before the first and/or after the last plotted point, as in a slope chart.
+     * Labels on one side are spread apart so they never overlap (default `none`).
+     */
+    end_labels?: "none" | "start" | "end" | "both";
+    /**
+     * Plot an `xy_line` at its rank instead of its value, as in a bump chart. Rank 1 is the largest
+     * value among ranked lines sharing the pane and axes at one X. `dense` ties give 1, 2, 2, 3;
+     * `competition` ties give 1, 2, 2, 4. The rank axis runs top-down by default. Default null.
+     */
+    rank?: "dense" | "competition" | null;
+}
+/** Waterfall colors; omitted colors use green increases, red decreases, and the series color for totals. */
+export interface general_waterfall_options {
+    increase_color?: string | null;
+    decrease_color?: string | null;
+    /** Defaults to the total color. */
+    subtotal_color?: string | null;
+    total_color?: string | null;
+    /** Draw a line from each bar's running total to the next bar (default true). */
+    connectors?: boolean;
+}
+/** Family-specific values of one row that the generic tooltip fields do not carry. */
+export type general_row_detail = {
+    type: "waterfall";
+    mark: "increase" | "decrease" | "subtotal" | "total";
+    /** Running total at the start and end of this bar. */
+    start: number;
+    end: number;
+} | {
+    type: "bullet";
+    target: number | null;
+    comparative: number | null;
+    bands: readonly [number | null, number | null, number | null];
+} | {
+    type: "rank";
+    rank: number;
+} | {
+    type: "stats";
+    /** Sample count backing the synthetic mark (bin, cell, band, or level). */
+    count: number;
+    /** Sample minimum; NaN when the mark carries no range (hexbin cell minimum is unset). */
+    min: number;
+    /** Sample maximum, or the cell count for hexbin marks. */
+    max: number;
+};
+export interface general_histogram_options {
+    /**
+     * Exact number of equal-width bins spanning the sample range (1..1000). Omitted uses
+     * Sturges' rule with a 1/2/5-rounded width aligned to multiples of that width.
+     */
+    bin_count?: number | null;
+    /** Bin width aligned to multiples of itself; overrides `bin_count`. At most 1000 bins. */
+    bin_width?: number | null;
+    /** Bin height measure (default `count`); `density` makes bar areas sum to one. */
+    normalization?: "count" | "percent" | "density";
+    /** Running totals from the left; cumulative density is the empirical CDF ending at one. */
+    cumulative?: boolean;
+}
+/**
+ * Engine-side statistics for the complete-build families. Fields apply per kind as documented;
+ * the rest are ignored. Non-default values on a non-statistics series are rejected.
+ */
+export interface general_stats_options {
+    /** KDE kernel (violin, density_curve, ridgeline, contour smoothing); default `gaussian`. */
+    kernel?: "gaussian" | "epanechnikov";
+    /** KDE bandwidth rule, or an explicit positive bandwidth; default `scott`. */
+    bandwidth?: "scott" | "silverman" | number;
+    /** KDE grid resolution: curve points per series or category, contour nodes per axis. `0` uses 64; otherwise 8..256 (contour clamps to 96). */
+    grid?: number;
+    /** Violin center overlay (default `quartiles`). */
+    violin_overlay?: "none" | "quartiles" | "box";
+    /** Violin slot half; one `left` and one `right` series form a split violin (default `full`). */
+    violin_side?: "full" | "left" | "right";
+    /** Density curve: fill the area under the curve (default true) or draw the line only. */
+    area?: boolean;
+    /** Ridgeline ridge height as a multiple of the band height, 0.25..8; values above 1 overlap upward. */
+    overlap?: number;
+    /** Strip-plot jitter extent as a fraction of the slot, 0..1 (default 0.8). */
+    jitter?: number;
+    /** Q-Q theoretical distribution (normal only). */
+    qq_distribution?: "normal";
+    /** Contour band count; `0` picks 8 automatic levels of the grid maximum. */
+    thresholds?: number;
+    /** Contour: paint filled bands (default true). */
+    contour_fill?: boolean;
+    /** Contour: paint iso-lines (default true). */
+    contour_lines?: boolean;
+    /** Contour: smooth counts with a 2D KDE (default true) or use raw 2D bin counts. */
+    smooth?: boolean;
+    /** Hexbin hexagon circumradius in CSS px; `0` picks a radius that keeps the grid within 64 columns. Explicit values must be 4..128. */
+    hexbin_radius?: number;
+}
+/** Presentation-only subset retained for callers that do not need compatible axis rebinding. */
+export type general_series_presentation_options = Omit<general_series_options, "pane" | "x_axis_id" | "y_axis_id">;
+export interface general_update_options {
+    /** Keep only the newest rows after this transaction. Omit to retain the full dataset. */
+    max_rows?: number;
+}
+export interface general_tooltip_snapshot {
+    series: number;
+    row: number;
+    row_id: general_row_id | {
+        generated: string;
+    };
+    x_label: string;
+    /** Heatmap Y category label, or null for non-heatmap series. */
+    y_label: string | null;
+    /** Custom row label, or null when the numeric value supplies the visible label. */
+    label: string | null;
+    value: number | null;
+    /** Lower range bound, or null for a missing bound/non-range series. */
+    low: number | null;
+    /** Upper range bound, or null for a missing bound/non-range series. */
+    high: number | null;
+    /** Numeric X error bounds or histogram bin edges, or null when missing/not applicable. */
+    x_low: number | null;
+    x_high: number | null;
+    /** Box-plot quartiles, or null for missing quartiles/non-box series. */
+    q1: number | null;
+    q3: number | null;
+    /** Bubble size channel, or null for missing size/non-bubble series. */
+    size: number | null;
+    title: string;
+    /** Opaque CSS identity color of the row's mark (sector fill, row color or series color). */
+    color: string;
+    /** Waterfall, bullet, or rank values of this row, or null for other series. */
+    detail: general_row_detail | null;
+}
+export interface general_shared_tooltip_snapshot {
+    /** Pane containing the anchor and every returned visible item. */
+    pane: number;
+    anchor_series: number;
+    anchor_row: number;
+    /**
+     * Visible rows whose exact engine-owned horizontal datum matches the anchor, in stable
+     * series order then row order. A heatmap may contribute multiple cells for one X datum.
+     */
+    items: readonly general_tooltip_snapshot[];
+}
+export type general_brush_range = {
+    type: "numeric";
+    from: number;
+    to: number;
+} | {
+    type: "temporal";
+    from: number;
+    to: number;
+} | {
+    type: "category";
+    from: string;
+    to: string;
+};
+export interface general_brush_snapshot {
+    pane: number;
+    axis_id: string;
+    dimension: "x" | "y";
+    range: general_brush_range;
+    /** Bounded stable series/row-order identities whose axis value is inside the selected range. */
+    items: readonly general_series_hit[];
+}
+export interface general_series_hit {
+    series: number;
+    row: number;
+    row_id: general_row_id | {
+        generated: string;
+    };
+    distance: number;
+}
+export interface general_accessibility_snapshot {
+    series: number;
+    title: string;
+    total_rows: number;
+    offset: number;
+    items: readonly {
+        row: number;
+        row_id: general_row_id | {
+            generated: string;
+        };
+        x_label: string;
+        y_label: string | null;
+        label: string | null;
+        value: number | null;
+        low: number | null;
+        high: number | null;
+        x_low: number | null;
+        x_high: number | null;
+        q1: number | null;
+        q3: number | null;
+        size: number | null;
+        detail: general_row_detail | null;
+    }[];
+}
+export interface general_legend_item {
+    series: number;
+    pane: number;
+    kind: general_series_kind;
+    title: string;
+    color: string | null;
+    visible: boolean;
+    /** At most 32 positive polar sectors per series and 512 across one snapshot. */
+    slices: readonly {
+        row: number;
+        label: string;
+        value: number;
+        color: string;
+    }[];
+    slices_truncated: boolean;
+}
+export interface general_legend_snapshot {
+    items: readonly general_legend_item[];
+}
+export interface general_axis_api {
+    applyOptions: general_axis_api["apply_options"];
+    resetView: general_axis_api["reset_view"];
+    setVisible: general_axis_api["set_visible"];
+    readonly id: string;
+    options(): general_axis_options;
+    apply_options(options: Partial<general_axis_presentation_options>): void;
+    set_visible(visible: boolean): void;
+    /** Shift a numeric, temporal, or category view by a fraction of its current visible span. */
+    pan(fraction: number): void;
+    /** Zoom around a domain value; temporal anchors are epoch milliseconds and category anchors are identities. */
+    zoom(factor: number, anchor_value: number | string): void;
+    reset_view(): void;
+    remove(): boolean;
+}
+export interface general_series_api {
+    applyOptions: general_series_api["apply_options"];
+    setVisible: general_series_api["set_visible"];
+    readonly id: number;
+    readonly kind: general_series_kind;
+    options(): general_series_options;
+    /** Mutate presentation and compatible pane/axis bindings while retaining identity and data. */
+    apply_options(options: Partial<general_series_options>): void;
+    set_visible(visible: boolean): void;
+    set_data(data: readonly (general_xy_row | bubble_row | range_area_row | error_bar_row | box_plot_row | waterfall_row | bullet_row | heatmap_grid_row | histogram_row | matrix_row)[]): void;
+    set_data_typed(columns: numeric_xy_columns | temporal_xy_columns | category_xy_columns | bubble_columns | numeric_range_columns | temporal_range_columns | category_range_columns | numeric_error_columns | temporal_error_columns | category_error_columns | category_box_columns | category_waterfall_columns | category_bullet_columns | category_heatmap_columns | numeric_heatmap_columns | temporal_heatmap_columns | histogram_columns | general_matrix_columns): void;
+    /** Update existing rows and append missing rows by explicit `id`, atomically. */
+    update_data(data: readonly (general_xy_row | bubble_row | range_area_row | error_bar_row | box_plot_row | waterfall_row | bullet_row | heatmap_grid_row | histogram_row | matrix_row)[], options?: general_update_options): void;
+    /** Typed-column form of {@link update_data}; `ids` is required at runtime. */
+    update_data_typed(columns: numeric_xy_columns | temporal_xy_columns | category_xy_columns | bubble_columns | numeric_range_columns | temporal_range_columns | category_range_columns | numeric_error_columns | temporal_error_columns | category_error_columns | category_box_columns | category_waterfall_columns | category_bullet_columns | category_heatmap_columns | numeric_heatmap_columns | temporal_heatmap_columns | histogram_columns | general_matrix_columns, options?: general_update_options): void;
+    data_at(row: number): general_tooltip_snapshot | null;
+    /** This series' currently selected mark, or `null` when another mark/series is selected. */
+    selected_hit(): general_series_hit | null;
+    accessibility_snapshot(offset?: number, limit?: number): general_accessibility_snapshot;
+    remove(): void;
+    /** Camel-case aliases; both naming styles operate on this same series handle. */
+    setData: general_series_api["set_data"];
+    setDataTyped: general_series_api["set_data_typed"];
+    updateData: general_series_api["update_data"];
+    updateDataTyped: general_series_api["update_data_typed"];
+    dataAt: general_series_api["data_at"];
+    selectedHit: general_series_api["selected_hit"];
+    accessibilitySnapshot: general_series_api["accessibility_snapshot"];
+}
+/** Calendar day (reference `BusinessDay`), interpreted at UTC midnight. `month`/`day` are 1-based. */
+export interface business_day {
+    year: number;
+    month: number;
+    day: number;
+}
+/**
+ * A point in time (reference `Time`). Accepted forms at the input boundary:
+ * - `number` — a finite whole UTC timestamp in seconds since the epoch;
+ * - `business_day` — `{ year, month, day }`, taken at UTC midnight;
+ * - `string` — `"YYYY-MM-DD"`, taken at UTC midnight.
+ *
+ * Numeric timestamps are never auto-converted and must be in the inclusive range
+ * `-62167219200..253402300799` (years 0000..9999). Out-of-range values that look like milliseconds,
+ * microseconds, or nanoseconds are rejected with a conversion hint. Business-day/string inputs are
+ * strictly validated and converted at the boundary. Values the engine returns (e.g. `data()`,
+ * crosshair params) are always the numeric UTC-seconds form.
+ */
+export type time = number | business_day | string;
+/** OHLC bar for candlestick/bar series. */
+export interface ohlc_data {
+    time: time;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    /**
+     * Optional body color for this bar (reference `BarData.color`/`CandlestickData.color`); when missed,
+     * the color from the series options is used. snake_case per the package API convention.
+     */
+    color?: string;
+    /**
+     * Optional wick color for this bar (reference `CandlestickData.wickColor`); when missed, the color
+     * from the series options is used. snake_case per the package API convention.
+     */
+    wick_color?: string;
+    /**
+     * Optional border color for this bar (reference `CandlestickData.borderColor`); when missed, the
+     * color from the series options is used. snake_case per the package API convention.
+     */
+    border_color?: string;
+}
+/** Single-value point for line/area/histogram series. */
+export interface single_value_data {
+    time: time;
+    value: number;
+    /**
+     * Optional color for this point (reference `LineData.color`/`HistogramData.color`); when missed, the
+     * color from the series options is used.
+     */
+    color?: string;
+}
+/**
+ * A whitespace point (reference `WhitespaceData`): reserves a time slot without carrying a value.
+ * The engine keeps the row as an explicit empty slot instead of dropping it, so it can later be
+ * replaced by a real bar via {@link series_api.update}.
+ */
+export interface whitespace_data {
+    time: time;
+}
+/** @deprecated Brushable Area now uses ordinary scalar Area data (`single_value_data`). */
+export interface brushable_area_data {
+    time: time;
+    value: number;
+}
+export interface grouped_bars_data {
+    time: time;
+    values: readonly number[];
+}
+export interface heatmap_cell {
+    low: number;
+    high: number;
+    amount: number;
+}
+export interface heatmap_data {
+    time: time;
+    cells: readonly heatmap_cell[];
+}
+export type heatmap_cell_shader = (amount: number) => string;
+export interface hlc_area_data {
+    time: time;
+    high: number;
+    low: number;
+    close: number;
+}
+export interface pretty_histogram_data {
+    time: time;
+    value: number;
+    color?: string;
+}
+export interface background_shade_data {
+    time: time;
+    value: number;
+}
+/** Every non-whitespace row in one stacked-area series must carry the same number of layers. */
+export interface stacked_area_data {
+    time: time;
+    values: readonly number[];
+}
+export interface stacked_bars_data {
+    time: time;
+    values: readonly number[];
+}
+export interface whisker_box_data {
+    time: time;
+    /** `[low whisker, lower quartile, median, upper quartile, high whisker]`. */
+    quartiles: readonly [number, number, number, number, number];
+    outliers?: readonly number[];
+}
+export type feature_series_data = brushable_area_data | grouped_bars_data | heatmap_data | hlc_area_data | pretty_histogram_data | background_shade_data | stacked_area_data | stacked_bars_data | whisker_box_data;
+export type series_data = ohlc_data | single_value_data | feature_series_data | whitespace_data;
+export type footprint_aggressor_side = "buy" | "sell" | "unknown";
+/** Bounded chart-owned level-two order-book configuration. */
+export interface depth_options {
+    tick_size: number;
+    max_levels_per_side: number;
+    history_bucket_micros: number;
+    max_history_buckets: number;
+    max_history_cells: number;
+    max_event_markers: number;
+}
+/** Exact unsigned 64-bit values split into high/low words for a portable typed-array boundary. */
+export interface uint64_columns {
+    high: Uint32Array;
+    low: Uint32Array;
+}
+/** One side of a depth snapshot; order-count 0xffffffff means unavailable. */
+export interface depth_level_columns {
+    prices: Float64Array;
+    sizes: Float64Array;
+    order_counts?: Uint32Array;
+}
+export interface depth_snapshot_columns {
+    timestamp_micros: number;
+    sequence_high: number;
+    sequence_low: number;
+    bids: depth_level_columns;
+    asks: depth_level_columns;
+}
+/** Allocation-conscious incremental depth rows. Side 0 is bid and side 1 is ask. */
+export interface depth_update_columns {
+    timestamps_micros: Float64Array;
+    sequences: uint64_columns;
+    previous_sequences: uint64_columns;
+    sides: Uint8Array;
+    prices: Float64Array;
+    sizes: Float64Array;
+    order_counts?: Uint32Array;
+}
+export interface depth_ladder_row {
+    price: number;
+    bid_size: number | null;
+    ask_size: number | null;
+    bid_order_count: number | null;
+    ask_order_count: number | null;
+    distance_from_touch_ticks: number;
+}
+export interface depth_study_snapshot {
+    /** Exact provider sequence encoded as decimal text. */
+    sequence: string | null;
+    best_bid: {
+        price: number;
+        size: number;
+        order_count: number | null;
+    } | null;
+    best_ask: {
+        price: number;
+        size: number;
+        order_count: number | null;
+    } | null;
+    bid_cumulative: readonly {
+        price: number;
+        size: number;
+        order_count: number | null;
+    }[];
+    ask_cumulative: readonly {
+        price: number;
+        size: number;
+        order_count: number | null;
+    }[];
+    imbalance: number | null;
+}
+export interface depth_heatmap_options {
+    pane_index: number;
+    price_min: number;
+    price_max: number;
+    minimum_size: number;
+    maximum_size: number;
+    bid_rgba: readonly [number, number, number, number];
+    ask_rgba: readonly [number, number, number, number];
+    opacity: number;
+}
+export interface depth_event_columns {
+    timestamps_micros: Float64Array;
+    prices: Float64Array;
+    sizes: Float64Array;
+    /** -1 unknown, 0 bid, 1 ask. */
+    sides: Int8Array;
+    /** 0 iceberg refill, 1 pulled liquidity, 2 size cluster, 3 sweep. */
+    kinds: Uint8Array;
+    /** Optional bounded host labels aligned one-for-one with the numeric columns. */
+    labels?: readonly (string | null)[];
+}
+export interface depth_event_layer_options {
+    pane_index: number;
+    max_markers: number;
+}
+/** Current-book bars anchored at a pane's right edge ("DOM on chart"). */
+export interface depth_profile_options {
+    pane_index: number;
+    levels_per_side: number;
+    /** Length (CSS px) of the largest drawn level. */
+    max_width: number;
+    /** `null` follows the painted theme's `--book-bid-fill` (bid) and `--book-ask-fill` (ask). */
+    bid_rgba: readonly [number, number, number, number] | null;
+    ask_rgba: readonly [number, number, number, number] | null;
+    /** Multiplies the bar color's alpha. Default 1. */
+    opacity: number;
+    show_sizes: boolean;
+}
+export interface time_and_sales_options {
+    minimum_volume: number;
+    /** Omit to include every classified aggressor side. */
+    side: footprint_aggressor_side | null;
+    /** Bounded to 4096 rows; results are newest first. */
+    max_rows: number;
+}
+export interface time_and_sales_row {
+    timestamp_micros: number;
+    price: number;
+    volume: number;
+    aggressor: footprint_aggressor_side;
+    /** Exact provider identity encoded as decimal text. */
+    trade_id: string | null;
+    conditions: number;
+}
+/** One raw trade consumed by a tick-driven footprint series. */
+export interface footprint_trade {
+    /** Signed Unix timestamp in integer microseconds; must be a JavaScript safe integer. */
+    timestamp_micros: number;
+    price: number;
+    volume: number;
+    aggressor?: footprint_aggressor_side;
+    /** Contemporaneous quote used only when `aggressor` is unknown. */
+    bid?: number;
+    ask?: number;
+    sequence?: number;
+    trade_id?: number;
+    conditions?: number;
+    /** Host-defined session identity. A change resets session cumulative delta. */
+    session_id?: number;
+}
+/** Allocation-conscious historical footprint input. Every column must have equal length. */
+export interface footprint_trade_columns {
+    timestamps_micros: Float64Array;
+    prices: Float64Array;
+    volumes: Float64Array;
+    /** 0 unknown, 1 buy, 2 sell. */
+    aggressors: Uint8Array;
+    /** Optional numeric columns use NaN for a missing value. */
+    bids: Float64Array;
+    asks: Float64Array;
+    sequences: Float64Array;
+    trade_ids: Float64Array;
+    conditions: Uint32Array;
+    session_ids: Float64Array;
+}
+export interface footprint_level {
+    level: number;
+    price: number;
+    bid_volume: number;
+    ask_volume: number;
+    unknown_volume: number;
+    total_volume: number;
+    delta: number;
+    delta_percent: number;
+    bid_imbalance: boolean;
+    ask_imbalance: boolean;
+    stacked_bid_imbalance: boolean;
+    stacked_ask_imbalance: boolean;
+}
+export interface footprint_bar {
+    /** Logical bar position; unlike display time, this remains unique for sub-second bars. */
+    logical_index: number;
+    start_timestamp_micros: number;
+    end_timestamp_micros: number;
+    session_id: number | null;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    bid_volume: number;
+    ask_volume: number;
+    unknown_volume: number;
+    total_volume: number;
+    delta: number;
+    max_delta: number;
+    min_delta: number;
+    session_delta: number;
+    trade_count: number;
+    poc_level: number;
+    poc_price: number;
+    levels: footprint_level[];
+}
+/**
+ * Columnar input for {@link series_api.set_data_typed} and {@link series_api.update_typed}: one
+ * `Float64Array` per channel, all of equal length. `times` are finite whole UTC seconds in the
+ * inclusive range `-62167219200..253402300799`; they are never auto-converted. Convert business
+ * days / "YYYY-MM-DD" strings to UTC midnight before using this typed API. Single-value series
+ * repeat their value in all four price channels.
+ * Whitespace slots are all-NaN rows.
+ *
+ * The engine treats these arrays as read-only inputs — it neither mutates nor retains them — so
+ * the same view may be passed as several channels, and views over a `SharedArrayBuffer` are safe.
+ * See {@link series_api.set_data_typed} for the full guarantee.
+ */
+export interface ohlc_columns {
+    times: Float64Array;
+    open: Float64Array;
+    high: Float64Array;
+    low: Float64Array;
+    close: Float64Array;
+}
+/** Structured result for an ingestion that was repaired, rejected, or semantically suspicious.
+ * `null` from {@link series_api.last_ingestion_diagnostics} means every supplied row was accepted
+ * without repair or anomaly. A rejected set/update preserves the series' current state. Timestamp
+ * reasons identify the whole-seconds/range failure and likely millisecond/microsecond/nanosecond
+ * units when applicable. Financial anomalies are accepted unchanged; hosts choose policy. */
+export interface ingestion_diagnostics {
+    status: "accepted_with_diagnostics" | "rejected";
+    accepted: number;
+    dropped_invalid: number;
+    dropped_non_finite: number;
+    dropped_out_of_range: number;
+    deduplicated: number;
+    reordered: boolean;
+    semantic_anomalies: number;
+    reason?: string;
+}
+/**
+ * Last-frame render telemetry, read with {@link chart_api.frame_stats}.
+ *
+ * Every field describes the **most recent frame** except `dropped_frames` and
+ * `presented_frames`, which are lifetime counters since chart create. The engine keeps a single
+ * fixed-size record — there is no history buffer — and the façade reuses one scratch array per
+ * chart, so polling every frame allocates nothing and costs two `performance.now()` reads
+ * inside the engine.
+ */
+export interface frame_stats {
+    /** CPU time in ms for the last frame: layout, axis-frame construction, engine frame build,
+     *  plugin passes, and command encoding. */
+    cpu_ms: number;
+    /** GPU time in ms for the last frame via WebGPU timestamp queries; `null` on `canvas2d`, on a
+     *  device without the `timestamp-query` feature, or before the first readback resolves.
+     *  Collection is armed by the first `frame_stats()` call, so expect one or two `null` reads
+     *  after chart create even where the feature is available. Readback is asynchronous, so this
+     *  is the most recently *resolved* frame rather than strictly the last presented one. */
+    gpu_ms: number | null;
+    /** Draw calls issued for the last frame. WebGPU: render-pass draw calls. Canvas2D: paint ops
+     *  issued by the pane executor (the nearest equivalent). */
+    draw_calls: number;
+    /** Frames the engine began but did not present, since chart create (surface acquisition
+     *  failed or timed out, so the previous frame stayed on screen). */
+    dropped_frames: number;
+    /** Frames presented since chart create, on whichever backend was active. */
+    presented_frames: number;
+    /** Wasm linear memory currently reserved, in bytes. Never shrinks — see the series retention
+     *  notes on {@link series_options.max_points}. */
+    memory_bytes: number;
+    /** Canvas2D paint ops the **engine** issued for the last frame: the axis/crosshair overlay,
+     *  plus the pane executor on the Canvas2D backend. Excludes plugin canvas primitives, which
+     *  are package-side (see `canvas_plugins`). Extension beyond the consumer's requested shape:
+     *  it is how "the WebGPU path does no per-frame Canvas2D work" is asserted. */
+    canvas2d_ops: number;
+    /** Producer overruns observed across all ring sources since chart create
+     *  (see {@link series_api.set_ring_source}); 0 while no ring is bound. */
+    ring_overruns: number;
+    /** WebGPU vertex-buffer allocations made for the most recent frame. A warmed, unchanged chart
+     *  reports 0; capacity grows geometrically and is retained until chart removal. */
+    gpu_buffer_allocations: number;
+    /** WebGPU queue buffer-write calls made for the most recent frame. */
+    gpu_write_calls: number;
+    /** Vertex bytes uploaded to WebGPU for the most recent frame. */
+    gpu_uploaded_bytes: number;
+    /** Retained layout recomputations performed for the most recent frame. */
+    layout_rebuilds: number;
+    /** Autoscale passes performed for the most recent frame. */
+    autoscale_runs: number;
+    /** Individual retained series layers rebuilt for the most recent frame. */
+    series_rebuilds: number;
+    /** Retained drawing layers rebuilt for the most recent frame. */
+    drawing_rebuilds: number;
+    /** Retained first-party trading layers rebuilt for the most recent frame. */
+    trading_rebuilds: number;
+    /** Retained grid/underlay layers rebuilt for the most recent frame. */
+    grid_rebuilds: number;
+    /** Retained interaction-overlay layers rebuilt for the most recent frame. */
+    overlay_rebuilds: number;
+    /** Browser axis/top-layer primitive rebuilds for the most recent frame. */
+    axis_rebuilds: number;
+    /** Browser text runs rasterized and resolved into atlas slots for the most recent frame. */
+    text_resolutions: number;
+}
+/**
+ * Byte layout of a `SharedArrayBuffer` ring bound with {@link series_api.set_ring_source}. Every
+ * offset is in **bytes**, relative to the start of the buffer except the per-channel offsets, which
+ * are relative to the start of a row.
+ *
+ * The channel offsets are independent, so a row may be a packed `f64[5]`, a wider struct with the
+ * price channels next to unrelated fields, or a single-value layout where all four price offsets
+ * point at the same 8 bytes.
+ */
+export interface ring_source_layout {
+    /** Byte offset of the first row. */
+    data_offset: number;
+    /** Bytes per row. Must be at least the end of the furthest channel. */
+    row_stride: number;
+    /** Maximum rows the ring holds before wrapping. */
+    capacity: number;
+    /** Byte offsets, within a row, of each `f64` channel. `time` is UTC seconds, as in
+     *  {@link ohlc_columns}. */
+    time_offset: number;
+    open_offset: number;
+    high_offset: number;
+    low_offset: number;
+    close_offset: number;
+    /**
+     * Byte offset of an `Int32` monotonic write cursor — the count of rows the producer has **ever**
+     * written, not a ring slot. Must be 4-byte aligned. The engine reads it with `Atomics.load`.
+     *
+     * The producer's base contract: write the row's bytes **first**, then publish the incremented
+     * count with `Atomics.store`. The cursor may overflow `Int32`; the engine handles the wrap.
+     */
+    write_cursor_offset: number;
+    /**
+     * Optional byte offset, within every row, of an aligned `Int32` sequence word. Set this for a
+     * producer that can wrap while the engine is draining; it upgrades the base cursor handshake to
+     * a per-slot seqlock and guarantees the engine never accepts a torn generation.
+     *
+     * For logical row count `next = previous_cursor + 1`, the producer must:
+     * 1. `Atomics.store(sequence, ~next)` before touching the row;
+     * 2. write all `f64` channels;
+     * 3. `Atomics.store(sequence, next)`;
+     * 4. `Atomics.store(write_cursor, next)`.
+     *
+     * The engine checks every selected slot before and after its bulk copy and retries a frame when
+     * a sequence changed. Omit only for backwards compatibility with producers that cannot lap the
+     * consumer during a copy; a double cursor check still rejects fully-published overlap, but cannot
+     * detect a producer currently midway through an unpublished overwrite.
+     */
+    sequence_offset?: number;
+}
+/** Inclusive logical (bar-index) range. */
+export interface logical_range {
+    from: number;
+    to: number;
+}
+/** Inclusive time range (UTC seconds). */
+export interface time_range {
+    from: number;
+    to: number;
+}
+export interface bars_info extends Partial<time_range> {
+    bars_before: number;
+    bars_after: number;
+}
+/** reference mismatch-direction values used by `data_by_index`. */
+export type mismatch_direction = -1 | 0 | 1;
+export type data_changed_scope = "full" | "update";
+export type data_changed_handler = (scope: data_changed_scope) => void;
+/**
+ * The last value of a series as reported by the engine (cf. reference `LastValueDataResult`, which
+ * instead returns `{ noData, price, color, ... }`). `formatted` is the value rendered with the
+ * series' price format; `time` is the UTC-second timestamp of the bar the value came from.
+ */
+export interface last_value_data {
+    value: number;
+    formatted: string;
+    time: number;
+}
+/**
+ * One live series in {@link chart_api.value_snapshot}. Numeric and formatted fields are null when
+ * the series is missing or whitespace at an exact logical index. `value` is the current scalar
+ * value; OHLC series instead populate `open`/`high`/`low`/`close`. Experimental custom series have
+ * null exact-index values; latest mode can expose only the last value recorded by a visible frame.
+ */
+export interface chart_value_snapshot {
+    series: series_api;
+    series_id: number;
+    kind: series_kind;
+    pane_index: number;
+    price_scale_id: string;
+    logical_index: number | null;
+    /** UTC-second timestamp selected independently per series in latest mode. */
+    time: number | null;
+    open: number | null;
+    high: number | null;
+    low: number | null;
+    close: number | null;
+    value: number | null;
+    /** Previous same-series non-whitespace close/scalar value. */
+    previous_value: number | null;
+    formatted_open: string | null;
+    formatted_high: string | null;
+    formatted_low: string | null;
+    formatted_close: string | null;
+    formatted_value: string | null;
+    formatted_previous_value: string | null;
+}
+/** Parameters delivered to crosshair-move and click subscribers (mirrors reference `MouseEventParams`). */
+export interface mouse_event_params {
+    /** UTC seconds of the bar under the cursor, or `null` off the data. */
+    time: number | null;
+    /** Float logical (bar) index under the cursor, or `null` when there is no data. */
+    logical: number | null;
+    /** Cursor position in CSS px relative to the pane, or `null` when the cursor left the chart. */
+    point: {
+        x: number;
+        y: number;
+    } | null;
+    /** Index of the pane under the cursor, or `null` over an axis strip or outside the panes. */
+    pane_index: number | null;
+    /** Per-series value at the hovered bar, keyed by the series handle. */
+    series_data: Map<series_api, ohlc_data | single_value_data>;
+    /** Rich engine snapshot at the crosshair index; on crosshair leave this is the latest snapshot. */
+    value_snapshot: chart_value_snapshot[];
+    /**
+     * The series under the cursor (reference `MouseEventParams.hoveredSeries`), from the engine's
+     * per-kind hit tests (candle/bar high-low range, histogram column, line stroke) — or a
+     * series primitive's hit, whose owning series reports here. `null` when nothing is hit.
+     */
+    hovered_series: series_api | general_series_api | null;
+    /** Exact engine-owned mark hit for a general series, otherwise `null`. */
+    general_hit: general_series_hit | null;
+    /** Exact engine-owned hit for an axis-free layout item. */
+    layout_hit: layout_hit | null;
+    /**
+     * The `external_id` a primitive's `hit_test` reported for the hovered object (reference
+     * `MouseEventParams.hoveredObjectId`), or `null` when no primitive is hit.
+     */
+    hovered_object_id: string | null;
+}
+export type mouse_event_handler = (params: mouse_event_params) => void;
+/** Engine-resolved context delivered for a secondary click inside a pane. */
+export interface chart_context_params extends mouse_event_params {
+    /** Exact price at the click Y on the hit series' scale, or the pane's canonical default scale. */
+    price: number;
+}
+export type chart_context_handler = (params: chart_context_params) => void;
+export type dbl_click_handler = (params: mouse_event_params) => void;
+export type visible_logical_range_handler = (range: logical_range | null) => void;
+export type visible_time_range_handler = (range: time_range | null) => void;
+/** Receives the time scale's new media size in px (reference `SizeChangeEventHandler`). */
+export type size_change_handler = (width: number, height: number) => void;
+/** Geometry of a pane's content area in CSS px relative to the chart container's top-left —
+ *  the anchor for platform-rendered per-pane chrome (indicator chips, legends). */
+export interface pane_geometry {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}
+/** One live overlay value resolved against the chart-wide comparison anchor. */
+export interface comparison_legend_entry {
+    series_id: number;
+    title: string;
+    anchor_time: number | null;
+    anchor_value: number | null;
+    latest_time: number | null;
+    latest_value: number | null;
+    change: number | null;
+    percent_change: number | null;
+}
+/** Scalar input accepted by a built-in indicator. The source series may itself be an indicator output. */
+export type indicator_input_source = "open" | "high" | "low" | "close" | "hl2" | "hlc3" | "ohlc4" | "hlcc4";
+export type indicator_kind = "session_levels" | "previous_period_levels" | "opening_range" | "swing_points" | "aroon" | "awesome_oscillator" | "dpo" | "chande_momentum" | "bollinger_metrics" | "envelopes" | "alma" | "accumulation_distribution" | "price_volume_trend" | "chaikin_oscillator" | "klinger" | "kama" | "mcginley" | "linear_regression" | "choppiness" | "atr_bands" | "relative_volume" | "volume_oscillator" | "elder_force" | "ease_of_movement" | "historical_volatility" | "trix" | "kst" | "tsi" | "mass_index" | "vortex" | "coppock_curve" | "fisher_transform" | "ultimate_oscillator" | "sma" | "ema" | "dema" | "tema" | "smma" | "hma" | "vwma" | "standard_deviation" | "cci" | "williams_r" | "stochastic_rsi" | "momentum" | "roc" | "donchian" | "pivot_points" | "zigzag" | "keltner" | "adx_dmi" | "parabolic_sar" | "supertrend" | "ichimoku" | "bollinger" | "rsi" | "macd" | "stochastic" | "atr" | "vwap" | "obv" | "cmf" | "mfi" | "volume" | "vwap_bands" | "wma";
+/** UTC groups by calendar day/week/month; host uses spans supplied by set_study_calendar. */
+export type study_calendar_policy = "utc" | "host";
+export type previous_period = "day" | "week" | "month";
+export type pivot_kind = "standard" | "fibonacci" | "camarilla" | "woodie" | "demark";
+export type vwap_reset = "session" | "weekly" | "monthly";
+export type indicator_parameter_type = "integer" | "number" | "boolean" | "source" | "series" | "choice";
+export interface indicator_parameter_descriptor {
+    name: string;
+    parameter_type: indicator_parameter_type;
+    default: unknown;
+    min: number | null;
+    max: number | null;
+    /** Present only for choice parameters, in editor display order. */
+    options?: string[];
+}
+export type study_marker_kind = "swing_high" | "swing_low";
+export interface study_marker {
+    row: number;
+    confirm_row: number;
+    price: number;
+    kind: study_marker_kind;
+}
+export interface study_annotations {
+    markers: study_marker[];
+}
+export interface indicator_output_descriptor {
+    name: string;
+    index: number;
+    supports_style: boolean;
+}
+/** Engine-owned presentation state for one output of a study binding. */
+export interface indicator_output_style {
+    visible: boolean;
+    line_color: string | null;
+    line_width: number | null;
+    line_style: number;
+    point_markers: boolean;
+    up_color: string | null;
+    down_color: string | null;
+    area_top_color: string | null;
+    area_bottom_color: string | null;
+}
+export interface indicator_schema {
+    revision: number;
+    kind: indicator_kind | (string & {});
+    parameters: indicator_parameter_descriptor[];
+    outputs: indicator_output_descriptor[];
+}
+/** The engine calls these functions synchronously. Output arrays cover only [from, length). */
+export interface custom_study_context {
+    from: number;
+    length: number;
+    tail: boolean;
+    time: Float64Array;
+    open: Float64Array;
+    high: Float64Array;
+    low: Float64Array;
+    close: Float64Array;
+    volume: Float64Array;
+    outputs: Float64Array[];
+}
+export interface custom_study_output {
+    name: string;
+    plot: "line" | "histogram" | "area" | "marker";
+    pane: "price" | "dedicated";
+    default_style?: Partial<indicator_output_style>;
+}
+export type custom_study_parameter_descriptor = Omit<indicator_parameter_descriptor, "min" | "max"> & {
+    min?: number | null;
+    max?: number | null;
+};
+export interface custom_study_definition<State = unknown> {
+    type: string;
+    version: number;
+    title: string;
+    parameters: custom_study_parameter_descriptor[];
+    outputs: custom_study_output[];
+    uses_volume?: boolean;
+    init(params: Record<string, unknown>): State;
+    update?(state: State, ctx: custom_study_context): void;
+    rebuild(state: State, ctx: custom_study_context): void;
+}
+export interface custom_study_fault_event {
+    binding: number;
+    message: string;
+}
+export interface custom_study_binding_options extends Partial<series_options> {
+    input_source?: indicator_input_source;
+    volume_source?: series_api | null;
+}
+/**
+ * An indicator output series' lineage (engine `IndicatorInfo`): which binding it belongs to
+ * (kind + params), the source series it derives from, and which output slot it is — everything
+ * a platform needs to render its own industry-standard indicator chip (title, params, source,
+ * hide/remove actions) without the engine owning any UI. Bollinger slots: 0 = upper,
+ * 1 = middle, 2 = lower; SMA/EMA: always 0.
+ */
+export interface indicator_info {
+    /** Stable identity shared by all outputs in one indicator binding. */
+    binding_id: number;
+    kind: indicator_kind | (string & {});
+    /** Complete structured parameters. Fields not used by this kind are `null`. */
+    parameters: {
+        calendar: study_calendar_policy | null;
+        previous_period: previous_period | null;
+        duration_seconds: number | null;
+        left: number | null;
+        right: number | null;
+        period: number | null;
+        pivot_kind: pivot_kind | null;
+        deviation: number | null;
+        fast: number | null;
+        slow: number | null;
+        signal: number | null;
+        k_period: number | null;
+        d_period: number | null;
+        reset: vwap_reset | null;
+        standard_deviation: number | null;
+        percent: number | null;
+        exponential: boolean | null;
+        offset: number | null;
+        sigma: number | null;
+        divisor: number | null;
+        annualization: number | null;
+        long_period: number | null;
+        short_period: number | null;
+        smoothing: number | null;
+        roc: [number, number, number, number] | null;
+        smoothing_periods: [number, number, number, number] | null;
+        ema_period: number | null;
+        sum_period: number | null;
+        /** Normalized registered custom-study parameters (null for built-in kinds). */
+        custom: Record<string, unknown> | null;
+    };
+    period: number;
+    /** Second parameter when the kind has one: Bollinger deviation, MACD signal period,
+     *  Stochastic %D period; otherwise `null`. */
+    deviation: number | null;
+    source: series_api;
+    /** Scalar OHLC/aggregate input selected for the binding. */
+    source_input: indicator_input_source;
+    /** VWAP's bound volume series, otherwise `null`. */
+    volume_source: series_api | null;
+    /** Current engine-owned presentation state for this output. */
+    style: indicator_output_style;
+    /** Stable display name for this output, preserving binding output order. */
+    output_name: string;
+    /** Display label in the chart's current language (set_locale / localization.locale; one of
+     *  en, de, es, fr, pt, ru, hi, zh, ja, ko). In English it equals output_name, and it is
+     *  identical to output_name for custom studies, whose names are the host's own words. */
+    output_label: string;
+    /** Bollinger: 0 = upper, 1 = middle, 2 = lower. MACD: 0 = line, 1 = signal, 2 = histogram.
+     *  Stochastic: 0 = %K, 1 = %D.
+     *  Single-output indicators: 0. */
+    output_index: number;
+    output_count: number;
+}
+export type kst_periods = readonly [number, number, number, number];
+/** Series lifecycle event (platform chrome: legend chips, indicator counts). */
+export interface series_change_event {
+    series: series_api | general_series_api | layout_series_api;
+    pane_index: number;
+}
+export type series_change_handler = (event: series_change_event) => void;
+/** Receives the patch passed to {@link chart_api.apply_options} (theme/border retokening). */
+export type options_change_handler = (options: deep_partial<chart_options>) => void;
+export interface time_scale_options {
+    /** Distance between adjacent bars in CSS pixels. */
+    bar_spacing: number;
+    /** Empty logical bars between the final data point and the right edge. */
+    right_offset: number;
+    /** Minimum bar spacing in CSS pixels (reference `minBarSpacing`, default 0.5). */
+    min_bar_spacing?: number;
+    /** Maximum bar spacing in CSS pixels (reference `maxBarSpacing`); omit for unlimited. */
+    max_bar_spacing?: number;
+    /** Right margin after the last bar in CSS pixels (reference `rightOffsetPixels`). */
+    right_offset_pixels?: number;
+    /** Show the time of day (not just the date) in axis/crosshair labels (reference `timeVisible`). */
+    time_visible?: boolean;
+    /** Include seconds when the time is shown (reference `secondsVisible`). */
+    seconds_visible?: boolean;
+    /** Prevent scrolling past the first data point on the left (reference `fixLeftEdge`). */
+    fix_left_edge?: boolean;
+    /** Prevent scrolling past the last data point on the right (reference `fixRightEdge`). */
+    fix_right_edge?: boolean;
+    /** Keep the visible range constant across chart resizes (reference `lockVisibleTimeRangeOnResize`). */
+    lock_visible_time_range_on_resize?: boolean;
+    /**
+     * Keep the right-most bar pinned during ordinary time-scale zoom. Defaults to `true`, matching
+     * measured TradingView wheel zoom: the gap after the latest bar stays constant while history
+     * compresses or expands. Ctrl/Cmd + wheel and pinch always zoom around the pointer. Set `false`
+     * for cursor-anchored ordinary zoom (the Lightweight Charts default).
+     */
+    right_bar_stays_on_scroll?: boolean;
+    /**
+     * Shift the visible range to the right (into the future) by the number of new bars when new
+     * data is added. Only applies when the last bar is visible (reference `shiftVisibleRangeOnNewBar`,
+     * default `true`).
+     */
+    shift_visible_range_on_new_bar?: boolean;
+    /**
+     * Allow the visible range to shift right when a new bar replaces an existing whitespace time
+     * point. Only applies when the last bar is visible and `shift_visible_range_on_new_bar` is
+     * enabled (reference `allowShiftVisibleRangeOnWhitespaceReplacement`, default `false`).
+     */
+    allow_shift_visible_range_on_whitespace_replacement?: boolean;
+    /** reference `timeScale.allowBoldLabels` (default true): bold the major time tick labels. */
+    allow_bold_labels?: boolean;
+    /**
+     * Show the whole time-scale strip (reference `timeScale.visible`, default `true`). Distinct from
+     * `time_visible`, which only controls whether the labels show the time of day.
+     */
+    visible?: boolean;
+    /** Draw small vertical lines on the time axis labels (reference `ticksVisible`, default `false`). */
+    ticks_visible?: boolean;
+    /**
+     * Minimum height of the time scale in CSS px (reference `minimumHeight`, default 0 = auto, i.e.
+     * ~28 px). Exceeded when the scale needs more space; useful to align horizontally stacked
+     * charts' scale heights.
+     */
+    minimum_height?: number;
+    /**
+     * Maximum tick-mark label length in characters, overriding the built-in cap
+     * (reference `tickMarkMaxCharacterLength`, default 8).
+     */
+    tick_mark_max_character_length?: number;
+    /** Custom time-axis tick formatter (reference `tickMarkFormatter`). Receives `(timeSeconds, tickMarkType)`
+     *  where tickMarkType is 0 Year, 1 Month, 2 DayOfMonth, 3 Time, 4 TimeWithSeconds. */
+    tick_mark_formatter?: (time: number, tick_mark_type: number) => string;
+}
+export interface price_scale_options {
+    /** 0 normal, 1 logarithmic, 2 percentage, 3 indexed-to-100 (reference values). */
+    mode: 0 | 1 | 2 | 3;
+    auto_scale: boolean;
+    invert_scale: boolean;
+    scale_margins: {
+        top: number;
+        bottom: number;
+    };
+    /** Align price scale labels to prevent them from overlapping (reference `alignLabels`, default `true`). */
+    align_labels?: boolean;
+    /** Draw small horizontal lines on the price axis labels (reference `ticksVisible`, default `false`). */
+    ticks_visible?: boolean;
+    /**
+     * Show the top and bottom corner labels only when their text is fully visible
+     * (reference `entireTextOnly`, default `false`).
+     */
+    entire_text_only?: boolean;
+    /**
+     * Minimum width of the price scale in CSS px (reference `minimumWidth`, default 0 = auto). Exceeded
+     * when the scale needs more space; useful to align vertically stacked charts' scale widths.
+     */
+    minimum_width?: number;
+    /**
+     * Price scale text color (reference `textColor`); when unset, the scale follows `layout.textColor`.
+     */
+    text_color?: string;
+    /**
+     * Aeris extension (industry-standard, default true): draw round-figure tick labels in the bold
+     * font — multiples of step×10 on uniform ticks, exact powers of ten on log ticks.
+     */
+    bold_round_labels?: boolean;
+    /** Reserve and render this scale's axis strip while retaining its state when hidden. */
+    visible?: boolean;
+}
+export interface price_scale_create_options extends Partial<price_scale_options> {
+    /** Pane-local, case-sensitive id (1-128 UTF-8 bytes; `left`, `right`, and `""` are reserved). */
+    id: string;
+    side: "left" | "right";
+    /** Dense position on the side; 0 is nearest the plot. Omitted appends outward. */
+    order?: number;
+}
+export interface price_scale_info {
+    id: string;
+    side: "left" | "right" | null;
+    order: number | null;
+    visible: boolean;
+    built_in: boolean;
+    pane_index: number;
+    series_ids: number[];
+}
+/** The visible raw-value range of a price scale. */
+export interface price_range {
+    from: number;
+    to: number;
+}
+/** Deeply-partial chart options; forwarded to the engine and deep-merged there (reference semantics). */
+export type deep_partial<T> = {
+    [K in keyof T]?: deep_partial<T[K]>;
+};
+export interface grid_line_options {
+    color: string;
+    style: number;
+    /** Show the grid lines (Aeris default `true`; the canonical default style is dashed). */
+    visible: boolean;
+}
+/**
+ * One crosshair line (reference `CrosshairLineOptions`). `labelVisible`/`labelBackgroundColor` keep
+ * the reference's camelCase names, matching the engine's serde keys.
+ */
+export interface crosshair_line_options {
+    color?: string;
+    /** Stroke width in CSS px. */
+    width?: number;
+    /** Line style (`line_style` value; default Dashed). */
+    style?: number;
+    visible?: boolean;
+    /** Display the crosshair label on the relevant scale (reference `labelVisible`, default `true`). */
+    labelVisible?: boolean;
+    /** Crosshair label background color (reference `labelBackgroundColor`). */
+    labelBackgroundColor?: string;
+}
+/** Custom label formatters (reference `localization`). Each receives numbers and returns a string. */
+export interface localization_options {
+    /**
+     * Current locale used to format dates. Uses the browser's language settings by default
+     * (reference `localization.locale`, default `navigator.language`). The tag's primary
+     * subtag also selects the language of every engine-generated text — indicator titles,
+     * drawing settings labels, the trading overlay, measure text: English (`en`), German
+     * (`de`), Spanish (`es`), French (`fr`), Portuguese (`pt`), Russian (`ru`), Hindi
+     * (`hi`), Simplified Chinese (`zh`), Japanese (`ja`) or Korean (`ko`), matched
+     * case-insensitively (`pt-BR` selects Portuguese); any other tag selects English.
+     */
+    locale?: string;
+    /**
+     * Date formatting string. Can contain `yyyy`, `yy`, `MMMM`, `MMM`, `MM` and `dd` literals
+     * which will be replaced with the corresponding date's value. Ignored when `time_formatter`
+     * is specified (reference `localization.dateFormat`, default `'dd MMM \'yy'`).
+     */
+    date_format?: string;
+    /** Format any non-percentage price label (axis ticks, last-value badge, crosshair, price lines). */
+    price_formatter?: (price: number) => string;
+    /** Format the crosshair time label. Receives the UTC-second timestamp. */
+    time_formatter?: (time: number) => string;
+}
+/** Pan/scroll gesture toggles (reference `handleScroll`). `false` disables all scrolling. */
+export interface handle_scroll_options {
+    /** Drag inside the pane to pan the time scale. */
+    pressed_mouse_move?: boolean;
+    /** Horizontal wheel/trackpad scroll pans the time scale (reference `handleScroll.mouseWheel`). */
+    mouse_wheel?: boolean;
+    /** Horizontal one-finger touch drag pans the time scale. */
+    horz_touch_drag?: boolean;
+    /** Vertical one-finger touch drag participates in panning. */
+    vert_touch_drag?: boolean;
+}
+/** Zoom/scale gesture toggles (reference `handleScale`). `false` disables all zooming. */
+export interface handle_scale_options {
+    /** Mouse-wheel zoom on the time scale. Modifiers do not change the default routing. */
+    mouse_wheel?: boolean;
+    /** Two-finger touch pinch zoom. */
+    pinch?: boolean;
+    /**
+     * Double-clicking a price/time axis resets it (reference `handleScale.axisDoubleClickReset`).
+     * `true`/`false` toggles both axes; the object form toggles each independently.
+     */
+    axis_double_click_reset?: boolean | {
+        time?: boolean;
+        price?: boolean;
+    };
+    /**
+     * Press-and-drag on an axis strip scales it (reference `axisPressedMouseMove`): vertical drag on a
+     * price axis scales that price scale (disabling autoscale), horizontal drag on the time axis
+     * scales bar spacing. `true`/`false` toggles both; the object form toggles each independently.
+     */
+    axis_pressed_mouse_move?: boolean | {
+        time?: boolean;
+        price?: boolean;
+    };
+}
+/** Momentum ("kinetic") scroll after a pan flick (reference `kineticScroll`). */
+export interface kinetic_scroll_options {
+    /** Coast after a one-finger touch flick. Default `true`. */
+    touch?: boolean;
+    /** Coast after a mouse-drag flick. Default `false`. */
+    mouse?: boolean;
+}
+/**
+ * Chart-level cosmetics of one visible price axis (reference `leftPriceScale`/`rightPriceScale`).
+ * Keys keep the reference's camelCase names, matching the engine's serde keys; the engine routes them to
+ * the corresponding scale.
+ */
+export interface chart_price_scale_options {
+    visible: boolean;
+    borderVisible: boolean;
+    borderColor: string;
+    /** Align price scale labels to prevent them from overlapping (reference `alignLabels`, default `true`). */
+    alignLabels?: boolean;
+    /** Draw small horizontal lines on the price axis labels (reference `ticksVisible`, default `false`). */
+    ticksVisible?: boolean;
+    /**
+     * Show the top and bottom corner labels only when their text is fully visible
+     * (reference `entireTextOnly`, default `false`).
+     */
+    entireTextOnly?: boolean;
+    /**
+     * Minimum width of the price scale in CSS px (reference `minimumWidth`, default 0 = auto). Exceeded
+     * when the scale needs more space; useful to align vertically stacked charts' scale widths.
+     */
+    minimumWidth?: number;
+    /** Price scale text color (reference `textColor`); when unset, the scale follows `layout.textColor`. */
+    textColor?: string;
+    /** Bold round-figure tick labels (Aeris extension, industry-standard, default `true`). */
+    boldRoundLabels?: boolean;
+}
+/** Crosshair "tracking mode" behavior on touch (reference `trackingMode`). Package-level. */
+export interface tracking_mode_options {
+    /**
+     * How tracking mode exits (reference `trackingMode.exitMode`). `"on_touch_end"` (reference
+     * `TrackingModeExitMode.OnTouchEnd`) clears the crosshair when the finger lifts;
+     * `"on_next_tap"` (default, reference `TrackingModeExitMode.OnNextTap`) keeps it until the next
+     * tap ends.
+     */
+    exit_mode?: "on_next_tap" | "on_touch_end";
+}
+export interface chart_options {
+    /**
+     * Domain of the canonical first pane. Omit for the compatible financial-time chart with its
+     * primary candlestick series. A general domain creates one preserved pane with no hidden
+     * financial series or transient pane removal.
+     */
+    initialPane: initial_pane_options;
+    layout: {
+        background: {
+            type: string;
+            color: string;
+        };
+        textColor: string;
+        /** Secondary unboxed chart text. Boxed live labels derive black/white text from their fill. */
+        mutedTextColor: string;
+        /** Theme fallback for candlestick and bar up geometry when the series color is unpinned. */
+        bullishColor: string;
+        /** Theme fallback for candlestick and bar down geometry when the series color is unpinned. */
+        bearishColor: string;
+        fontSize: number;
+        fontFamily: string;
+        /**
+         * Weight of regular axis and scale label text (CSS 100–900, default 400). Bold labels use
+         * 700, or this weight when it is heavier.
+         */
+        fontWeight: number;
+        panes: {
+            separatorColor: string;
+            /** Hover band for an interactive pane separator. */
+            separatorHoverColor: string;
+            /**
+             * Allow dragging pane separators to resize panes (reference `layout.panes.enableResize`,
+             * default `true`). Package-level: drives the separator drag and its hover cursor; it is
+             * stripped before options reach the engine.
+             */
+            enableResize: boolean;
+        };
+    };
+    grid: {
+        vertLines: grid_line_options;
+        horzLines: grid_line_options;
+    };
+    crosshair: {
+        vertLine: crosshair_line_options;
+        horzLine: crosshair_line_options;
+        mode: number;
+    };
+    leftPriceScale: chart_price_scale_options;
+    rightPriceScale: chart_price_scale_options;
+    /** Time-axis strip cosmetics (reference `timeScale.borderVisible`/`borderColor`). */
+    timeScale: {
+        borderVisible: boolean;
+        borderColor: string;
+    };
+    /**
+     * Large text label painted inside the pane (reference v4 `watermark`). `color` is any CSS color
+     * (include alpha for a faint mark; the default is fully transparent). Aeris draws it on the shared
+     * overlay above the series — a deliberate divergence needed to stay pixel-identical across the
+     * WebGPU and Canvas2D backends.
+     */
+    watermark: {
+        visible: boolean;
+        text: string;
+        color: string;
+        fontSize: number;
+        fontFamily: string;
+        fontStyle: string;
+        horzAlign: "left" | "center" | "right";
+        vertAlign: "top" | "center" | "bottom";
+    };
+    /** Install a ResizeObserver so the chart tracks its container's size. Default `false` (reference parity). */
+    autoSize: boolean;
+    /**
+     * Aeris Charts Commercial License key. Any non-empty key hides the once-per-page license notice
+     * in the browser console and the bottom-left Aeris Terminal attribution logo that charts with a
+     * financial pane display (general-only charts carry no logo). Only commercial licensees may set
+     * it; AGPL use must keep both (see NOTICE). Package-level: read at chart
+     * creation and never forwarded to the engine.
+     */
+    licenseKey: string;
+    /**
+     * Temporarily promote hovered chart content above idle (default `true`). When on, hovering a
+     * series promotes its whole indicator group (all Bollinger/ribbon outputs together, internal
+     * order kept) and hovering a drawing promotes it above ordinary price; dragging/editing tops
+     * hovered tops selected. Idle default paints indicators below idle drawings below ordinary
+     * price; explicit `set_series_order` overrides idle series grouping. Stable saved order and
+     * hit-test ties never change, so promotion cannot oscillate hover.
+     */
+    hoveredSeriesOnTop: boolean;
+    /**
+     * Engine-drawn hover tooltip and index-axis cursor line for general panes (default visible).
+     * Cartesian panes with an index axis hover the nearest X datum or category band and list every
+     * series there; other panes describe the item under the pointer. Hidden while a
+     * `create_general_tooltip` DOM tooltip is attached.
+     */
+    generalTooltip: {
+        visible: boolean;
+    };
+    /**
+     * Engine-drawn legend of general panes (default hidden): a series-color pill and title per
+     * series, one entry per pie, polar-area or radial-bar slice, and one per layout series. Clicking
+     * a series or layout entry toggles its visibility and notifies `subscribe_general_legend_change`.
+     * Top/bottom reserve height, left/right reserve width, and inset positions overlay the plot.
+     * Offset is bounded in CSS pixels.
+     * Painted by the engine, so GPUI and browser hosts show the same legend.
+     */
+    generalLegend: {
+        visible: boolean;
+        position: "top" | "bottom" | "left" | "right" | "insideLeft" | "insideRight" | "center" | "insideTop" | "insideBottom" | "insideTopLeft" | "insideTopRight" | "insideBottomLeft" | "insideBottomRight" | {
+            x: number | `${number}%`;
+            y: number | `${number}%`;
+        };
+        offset: number;
+    };
+    /** Custom label formatters (reference `localization`). Package-level; carries JS callbacks. */
+    localization: localization_options;
+    /** Enable/disable panning gestures (reference `handleScroll`). Default `true`. Package-level. */
+    handle_scroll: boolean | handle_scroll_options;
+    /** Enable/disable zoom gestures (reference `handleScale`). Default `true`. Package-level. */
+    handle_scale: boolean | handle_scale_options;
+    /** Momentum scroll after a pan flick (reference `kineticScroll`). Default touch-only. Package-level. */
+    kinetic_scroll: boolean | kinetic_scroll_options;
+    /**
+     * Wheel/trackpad policy. `auto` uses behavior measured from the pinned public reference fixture:
+     * vertical deltas zoom time
+     * and horizontal deltas pan time independently on every chart surface, without modifier
+     * routing. `pan` and `zoom` are explicit Aeris extensions.
+     */
+    wheel_behavior: "auto" | "pan" | "zoom";
+    /** Zoom the hovered price axis in auto wheel mode. Default `false`. Package-level. */
+    price_axis_wheel_zoom: boolean;
+    /** Chart-owned keyboard and assistive-technology surface. Enabled by default. */
+    accessibility: boolean | accessibility_options;
+    /** Touch crosshair tracking-mode behavior (reference `trackingMode`). Package-level. */
+    tracking_mode: tracking_mode_options;
+    /** Backend override for capability testing; defaults to automatic WebGPU → Canvas2D fallback. */
+    backend: "auto" | "canvas2d";
+    /**
+     * Style preset from `theme.ts` (the package's style settings file). At creation it is applied
+     * under explicit options; later `apply_options({ theme })` switches the selected preset live.
+     * The selected identity is retained so {@link chart_api.reset_style_to_defaults} can restore the
+     * correct light/dark canonical defaults after further customization. Package-level only — the
+     * raw `theme` key is never forwarded to the engine.
+     */
+    theme: "light" | "dark";
+}
+/** Options accepted when adding a series. */
+export interface series_options {
+    /**
+     * Retention ceiling: the series holds at most this many data points, evicting the **oldest**
+     * first. Omit (or pass `0`) for the default, which is **unbounded** — a series grows for as long
+     * as the host appends to it, and wasm linear memory never shrinks, so an open-ended live session
+     * with no cap grows monotonically. Set this to make memory flat over a long session; watch it
+     * with {@link frame_stats.memory_bytes}.
+     *
+     * `max_points` is a hard ceiling — the series never holds more. Eviction is amortized rather
+     * than per-point, because trimming rebuilds the shared time axis: once the count exceeds
+     * `max_points` the engine trims back to `max_points - max_points / 32`, so the count sits in
+     * `[max_points - max_points / 32, max_points]` and the cost per appended point stays constant.
+     * `data()` reflects the retained rows, so it can return slightly fewer than `max_points`.
+     *
+     * Eviction is per series, and only affects the shared time axis where the evicted timestamps
+     * were not also held by another series. Applying a cap trims the series' existing points
+     * immediately; a full `set_data`/`set_data_typed` install is trimmed to the ceiling too.
+     *
+     * Note this is a *point* count, not a time window: the retained span depends on the bar interval.
+     */
+    max_points: number;
+    /**
+     * UTC-seconds time from which rows keep their data but are not drawn, so another
+     * presentation (for example a live footprint) can take over the series' tail. `null` draws
+     * every row.
+     */
+    render_before_time: number | null;
+    /** Overrides the kind default color (line/area/histogram). */
+    color: string;
+    /** Candlestick/bar up (close ≥ open) body color. Any CSS color the engine parses. */
+    up_color: string;
+    /** Candlestick/bar down (close < open) body color. */
+    down_color: string;
+    /** Render candlesticks from a bounded Heikin Ashi presentation projection while keeping raw OHLC in data(). */
+    heikin_ashi: boolean;
+    /** Candlestick up-bar wick color. Until set, follows `up_color` (reference parity). Pass `""` to
+     *  clear a previously-pinned color and go back to following the body color. */
+    wick_up_color: string;
+    /** Candlestick down-bar wick color. Until set, follows `down_color`. `""` clears the override. */
+    wick_down_color: string;
+    /** Candlestick up-bar border color. Until set, follows `up_color` (reference parity). `""` clears it. */
+    border_up_color: string;
+    /** Candlestick down-bar border color. Until set, follows `down_color`. `""` clears the override. */
+    border_down_color: string;
+    /** Candlestick wick visibility (default true; ignored by bar series). */
+    wick_visible: boolean;
+    /** Candlestick body-border visibility (default true; ignored by bar series). */
+    border_visible: boolean;
+    /** Line/area stroke width in CSS px (default 2; EMA-family indicators default to 1). */
+    line_width: number;
+    /** Area fill color at the line (top of the gradient). */
+    area_top_color: string;
+    /** Area fill color at the base (bottom of the gradient; usually fully transparent). */
+    area_bottom_color: string;
+    /**
+     * Histogram only: color each bar by the main price series' up/down direction at that time
+     * (translucent green/red), matching industry-standard volume. Default false (solid `color`).
+     */
+    histogram_updown: boolean;
+    /**
+     * Place the series on the bottom-band overlay price scale (volume-style): its magnitude is
+     * excluded from the main price axis autoscale. Mirrors the reference's `priceScaleId: ''` + scaleMargins.
+     */
+    overlay: boolean;
+    /** Pane-local price-scale id; `left`/`right` are built-ins and `""` is the overlay scale. */
+    price_scale_id: string;
+    /** Camel-case reference alias of `price_scale_id`. */
+    priceScaleId: string;
+    /** Overlay band as fractions of pane height (default `{ top: 0.8, bottom: 0 }` ⇒ bottom fifth). */
+    scale_margins: {
+        top: number;
+        bottom: number;
+    };
+    /** Stacked pane index (0 = top/price pane). A new pane is created on demand (roadmap Phase B1). */
+    pane: number;
+    /**
+     * Stretch factor of a newly-created pane. Default: the compact height every separate indicator
+     * pane opens at (0.15 of the main pane).
+     */
+    pane_stretch: number;
+    /** Line/area join type (roadmap Phase B3). */
+    line_type: "simple" | "stepped" | "curved";
+    /** Draw a disc at each data point (shown when bars are spaced enough), roadmap Phase B3. */
+    point_markers: boolean;
+    /** Baseline price for a baseline series (omit for auto = visible-range midpoint). */
+    baseline_value: number;
+    /**
+     * Pulse an expanding ring at the last value (drives an rAF loop while visible). Default `true`
+     * for line and area series and `false` for every other type; set `false` to disable. A value
+     * equal to the current type's default keeps following the default when the series type
+     * changes; a value that differs from it (an opt-out on a line, an opt-in on candles) is kept.
+     */
+    last_price_animation: boolean;
+    /** Keep the series in the engine while toggling its visibility. */
+    visible: boolean;
+    /** Show the last-value badge on the price scale (reference `lastValueVisible`, default `true`). */
+    last_value_visible?: boolean;
+    /**
+     * reference `title` (default `""`): the series' display name, shown as a chip in a darker
+     * shade of the label color at the front of the last-value label cluster when `title_visible`
+     * holds (industry-standard).
+     */
+    title?: string;
+    /** Show the `title` chip in the last-value cluster (industry-standard; default `true`). */
+    title_visible?: boolean;
+    /**
+     * Stack a candle-close countdown row below the price inside the last-value cluster. The
+     * canonical primary market series defaults to `true`; subsequently added series default to
+     * `false` and must opt in when they own a market interval. The package ticks a 1s timer while
+     * any visible series with data has this on.
+     */
+    countdown_visible?: boolean;
+    /** Show the series price line at the last value (reference `priceLineVisible`, default `true`). */
+    price_line_visible?: boolean;
+    /** Value the price line tracks (reference `PriceLineSource`): 0 LastBar (default), 1 LastVisible. */
+    price_line_source?: 0 | 1;
+    /**
+     * Built-in live-price line extent. `"partial"` (default) draws from the tracked bar/value to the
+     * pane's right edge; `"full"` draws the conventional full-pane horizontal line.
+     */
+    price_line_extent?: "partial" | "full";
+    /** Price line width in CSS px (reference `priceLineWidth`, default 1). */
+    price_line_width?: number;
+    /**
+     * Built-in live-line and complete last-value-cluster color (reference `priceLineColor`);
+     * default `""` follows the resolved series/bar/point color.
+     */
+    price_line_color?: string;
+    /** Price line style, a `LINE_STYLE_TO_U8` value (reference `priceLineStyle`, default 1 Dotted). */
+    price_line_style?: number;
+    /**
+     * industry-standard bid/ask lines + "Bid"/"Ask" axis chips (default `false` — platforms opt
+     * in). Push the live quotes with {@link series_api.set_bid_ask}; each side with a value
+     * draws a line across the pane and a title chip on the scale.
+     */
+    bid_ask_visible?: boolean;
+    /** Bid line/chip color (default: the theme's primary token). */
+    bid_color?: string;
+    /** Ask line/chip color (default: the market-loss token). */
+    ask_color?: string;
+    /** Bid/ask line width in CSS px (default 1, mirrors `price_line_width`). */
+    bid_ask_line_width?: number;
+    /** Bid/ask line style, a `LINE_STYLE_TO_U8` value (default 1 Dotted, mirrors `price_line_style`). */
+    bid_ask_line_style?: number;
+    /** Line stroke style 0-4, a `LINE_STYLE_TO_U8` value (reference `lineStyle`, default 0 Solid). */
+    line_style?: number;
+    /** Draw the line itself on line/area/baseline series (reference `lineVisible`, default `true`). */
+    line_visible?: boolean;
+    /** Point-marker disc radius in CSS px (reference `pointMarkersRadius`); unset = auto. */
+    point_markers_radius?: number;
+    /** Show the crosshair marker on this series or indicator output (Aeris default `false`). */
+    crosshair_marker_visible?: boolean;
+    /** Crosshair marker radius in CSS px (reference `crosshairMarkerRadius`, default 4). */
+    crosshair_marker_radius?: number;
+    /** Crosshair marker border color; default `""` follows the chart background. */
+    crosshair_marker_border_color?: string;
+    /** Crosshair marker fill color; default `""` follows the series value color. */
+    crosshair_marker_background_color?: string;
+    /** Crosshair marker border width in CSS px (reference `crosshairMarkerBorderWidth`, default 2). */
+    crosshair_marker_border_width?: number;
+    /** Baseline: first gradient fill color above the baseline (reference `topFillColor1`). */
+    top_fill_color1?: string;
+    /** Baseline: second gradient fill color above the baseline (reference `topFillColor2`). */
+    top_fill_color2?: string;
+    /** Baseline: line color above the baseline (reference `topLineColor`). */
+    top_line_color?: string;
+    /** Baseline: line width above the baseline in CSS px (reference `topLineWidth`). */
+    top_line_width?: number;
+    /** Baseline: line style above the baseline, a `LINE_STYLE_TO_U8` value (reference `topLineStyle`). */
+    top_line_style?: number;
+    /** Baseline: first gradient fill color below the baseline (reference `bottomFillColor1`). */
+    bottom_fill_color1?: string;
+    /** Baseline: second gradient fill color below the baseline (reference `bottomFillColor2`). */
+    bottom_fill_color2?: string;
+    /** Baseline: line color below the baseline (reference `bottomLineColor`). */
+    bottom_line_color?: string;
+    /** Baseline: line width below the baseline in CSS px (reference `bottomLineWidth`). */
+    bottom_line_width?: number;
+    /** Baseline: line style below the baseline, a `LINE_STYLE_TO_U8` value (reference `bottomLineStyle`). */
+    bottom_line_style?: number;
+    /** Histogram base value the bars grow from (reference `base`, default 0). */
+    base?: number;
+    /** Area: invert the filled area (fill above the line) (reference `invertFilledArea`, default `false`). */
+    invert_filled_area?: boolean;
+    /** Bar: draw the open tick on each bar (reference `openVisible`, default `true`). */
+    open_visible?: boolean;
+    /** Bar: draw the close tick on each bar (default `true`). Set false with `open_visible` false for high-low bars. */
+    close_visible?: boolean;
+    /**
+     * Bar: keep the stroke one pixel wide at every zoom (reference `thinBars`, default `true`).
+     * When `false` the stroke follows the bar spacing, growing at most one CSS pixel past its width
+     * at the configured `bar_spacing` and never beyond 3 CSS pixels.
+     */
+    thin_bars?: boolean;
+    /**
+     * Per-series price formatting (reference `priceFormat`). Built-in types (`"price"`/`"volume"`/
+     * `"percent"`, reference `PriceFormatBuiltIn`) take `precision` and `min_move` (reference
+     * `precision`/`minMove`, snake_case per the package API convention); `"custom"` (reference
+     * `PriceFormatCustom`) installs a JS formatter callback with an optional `min_move`.
+     */
+    price_format?: {
+        type: "price" | "volume" | "percent";
+        precision?: number;
+        min_move?: number;
+    } | {
+        type: "custom";
+        formatter: (price: number) => string;
+        min_move?: number;
+    };
+}
+export interface feature_brush_style {
+    line_color: string;
+    top_color: string;
+    bottom_color: string;
+    line_width: number;
+}
+export interface feature_brush_range {
+    /** Logical range; `from` is inclusive and `to` is exclusive. */
+    range: logical_range;
+    style: feature_brush_style;
+}
+/** Rust-engine options shared by the advanced financial series. Irrelevant keys are ignored. */
+export interface feature_series_options {
+    colors: readonly string[] | readonly {
+        line: string;
+        area: string;
+    }[];
+    line_color: string;
+    top_color: string;
+    bottom_color: string;
+    base_price: number;
+    /**
+     * @deprecated Brush ranges are transient presentation state owned by
+     * `enable_brushable_area_interaction()` on an ordinary Area series.
+     */
+    brush_ranges: readonly feature_brush_range[];
+    cell_border_width: number;
+    cell_border_color: string;
+    /** Official Heat Map `cellShader`; evaluated at the host boundary and retained as engine color. */
+    cell_shader: heatmap_cell_shader;
+    high_line_color: string;
+    low_line_color: string;
+    close_line_color: string;
+    high_line_width: number;
+    low_line_width: number;
+    close_line_width: number;
+    width_percent: number;
+    radius: number;
+    low_color: string;
+    high_color: string;
+    low_value: number;
+    high_value: number;
+    opacity: number;
+    whisker_color: string;
+    lower_quartile_fill: string;
+    upper_quartile_fill: string;
+    outlier_color: string;
+}
+export interface footprint_series_options {
+    /** Exact exchange price increment. Off-grid trades are rejected. */
+    tick_size: number;
+    /** Adjacent ticks aggregated into one footprint row. Defaults to 1 (one row per tick). */
+    ticks_per_row?: number;
+    /** Bar construction policy shared by footprint and its chart-level trade stream. */
+    bar_type: "time" | "trades" | "volume" | "range";
+    /** Whole-second aligned time-bar period when bar_type is time. */
+    interval_seconds: number;
+    anchor_seconds: number;
+    /** Number of trades per bar when bar_type is trades. */
+    trades_per_bar: number;
+    /** Total volume per bar when bar_type is volume. */
+    volume_per_bar: number;
+    /** Tick span when bar_type is range. */
+    range_ticks: number;
+    imbalance_ratio: number;
+    imbalance_minimum_volume: number;
+    stacked_imbalance_levels: number;
+    /** Row presentation; every mode paints the same stored bars (see docs/footprint.md). */
+    cell_mode: "bid_ask" | "total" | "delta" | "profile_in_bar" | "volume_ladder" | "horizontal_imbalance" | "bid_ask_histogram";
+    /** Cell number size in CSS px, 6-48. Defaults to 10. */
+    font_size: number;
+    /** Sell-aggressor (bid) hue. Defaults to the order-flow sell token `#d9306a`. */
+    bid_color: string;
+    /** Buy-aggressor (ask) hue. Defaults to the order-flow buy token `#006edd`. */
+    ask_color: string;
+    positive_delta_color: string;
+    negative_delta_color: string;
+    /** `null` follows the live chart layout foreground. */
+    text_color: string | null;
+    /** Tile behind the printed numbers. `null` follows the theme: the raised tile tone in light, `--surface-secondary` in dark. */
+    cell_color: string | null;
+    /** Point-of-control outline. Defaults to the warning token `#ff6900` in both themes. */
+    poc_color: string;
+    stacked_bid_color: string;
+    stacked_ask_color: string;
+    /** Print each bar's delta and total volume under its cluster. Defaults to true. */
+    show_bar_summary: boolean;
+    /** Merge rows in 1-2-5 steps so cells stay legible at the current zoom. Defaults to false. */
+    adaptive_rows?: boolean;
+    /** Range strip of a bar that closed at or above its open. `null` follows `ask_color`. */
+    range_up_color: string | null;
+    /** Range strip of a bar that closed below its open. `null` follows `bid_color`. */
+    range_down_color: string | null;
+    /** Volume line of the bar summary. `null` follows the cell text color. */
+    summary_text_color: string | null;
+    /** Unclassified volume in the `profile_in_bar` mode. `null` follows the cell text color. */
+    unclassified_color: string | null;
+    /** Per-row volume histogram opacity, 0-1. Defaults to 170/255 (about 0.67). */
+    histogram_opacity: number;
+    /** Single-imbalance cell tint opacity, 0-1; stacked runs stay opaque. Defaults to 150/255 (about 0.59). */
+    imbalance_opacity: number;
+    /** Weight of plain cell numbers and the summary volume line, 100-900. Defaults to 500. */
+    text_weight: number;
+    /** Weight of imbalanced cell numbers and the summary delta line, 100-900. Defaults to 700. */
+    strong_text_weight: number;
+    /** `null` follows the chart layout font family. */
+    font_family: string | null;
+    /** Point-of-control outline thickness in CSS px, 1-4. Defaults to 1. */
+    poc_width: number;
+    /** Outline the point-of-control row. Defaults to true. */
+    show_poc: boolean;
+    /** Tint imbalanced cells and print them in the strong weight; imbalance data is unaffected. Defaults to true. */
+    show_imbalances: boolean;
+    /** Draw the traded-range strip on each cluster's left edge. Defaults to true. */
+    show_range_strip: boolean;
+}
+/** Source prices a box transform reacts to: each row's close, or its high for advances and low
+ *  for declines (current direction tested first). Defaults to `"close"`. */
+export type synthetic_price_source = "close" | "high_low";
+/** How a Kagi `reversal_size` is measured: a price distance, or a percentage of the current
+ *  line's extreme (must be under 100). Defaults to `"absolute"`. */
+export type kagi_reversal_mode = "absolute" | "percent";
+/** Engine-owned price-action transform applied to canonical host OHLC source bars. */
+export type synthetic_bar_options = {
+    kind: "renko_fixed";
+    box_size: number;
+    source?: synthetic_price_source;
+    wicks?: boolean;
+} | {
+    kind: "renko_atr";
+    period: number;
+    source?: synthetic_price_source;
+    wicks?: boolean;
+} | {
+    kind: "line_break";
+    lines?: number;
+} | {
+    kind: "kagi";
+    reversal_size: number;
+    reversal_mode?: kagi_reversal_mode;
+} | {
+    kind: "point_and_figure";
+    box_size: number;
+    reversal_boxes?: number;
+    source?: synthetic_price_source;
+};
+/** Kagi line thickness state: a line turns yang (thick) above the prior shoulder and yin (thin)
+ *  below the prior waist. `reference` is that shoulder or waist. */
+export interface kagi_line {
+    yang_at_open: boolean;
+    reference: number | null;
+}
+/** One derived bar of a price transform, with full-resolution source-time bounds. */
+export interface synthetic_bar {
+    logical_index: number;
+    open_timestamp_micros: number;
+    close_timestamp_micros: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    kagi: kagi_line | null;
+}
+export type any_series_options = series_options & Partial<feature_series_options> & Partial<footprint_series_options>;
+export declare const LINE_TYPE_TO_U8: Record<NonNullable<series_options["line_type"]>, number>;
+/** Style of a price line / crosshair line. */
+export type line_style = "solid" | "dotted" | "dashed" | "large_dashed" | "sparse_dotted";
+export declare const LINE_STYLE_TO_U8: Record<line_style, number>;
+/** Options for {@link series_api.create_price_line}. */
+export interface price_line_options {
+    price: number;
+    color?: string;
+    line_width?: number;
+    line_style?: line_style;
+    /** Axis label text; defaults to the formatted price. */
+    title?: string;
+    /** Draw the line itself (reference `lineVisible`, default `true`). */
+    line_visible?: boolean;
+    /** Show the price label on the axis (reference `axisLabelVisible`, default `true`). */
+    axis_label_visible?: boolean;
+    /** Axis label background color; defaults to the line color (reference `axisLabelColor`). */
+    axis_label_color?: string;
+    /** Axis label text color (reference `axisLabelTextColor`). */
+    axis_label_text_color?: string;
+}
+/** A handle to a created price line. */
+export interface price_line_api {
+    remove(): void;
+    /** Deep-merge a patch onto this line's options (reference `IPriceLine.applyOptions`). */
+    apply_options(options: Partial<price_line_options>): void;
+    /** The current (deep-merged) options of this price line (reference `IPriceLine.options`). */
+    options(): price_line_options;
+    readonly id: number;
+}
+/** A per-bar marker on a series (roadmap Phase B4), informed by common public chart APIs. */
+export interface series_marker {
+    /** Bar time (must match a data point's time). Accepts the same forms as data `time`. */
+    time: time;
+    /** Placement relative to the bar. reference names are canonical; short aliases remain compatible. */
+    position?: "aboveBar" | "belowBar" | "inBar" | "atPriceTop" | "atPriceBottom" | "atPriceMiddle" | "above" | "below";
+    /** Marker shape. Default `"circle"`. */
+    shape?: "circle" | "square" | "arrowUp" | "arrowDown";
+    /** Fill color (any CSS color the engine parses). Default series color. */
+    color?: string;
+    /** Optional label rendered beside the marker. */
+    text?: string;
+    /** Optional object ID reported by marker hit testing. */
+    id?: string;
+    /** Marker-size multiplier. Default `1`; negative values clamp to zero like the reference. */
+    size?: number;
+    /** Exact price, required by `atPriceTop`, `atPriceBottom`, and `atPriceMiddle`. */
+    price?: number;
+}
+export interface series_marker_options {
+    /** Expand price-scale pixel margins so marker shapes remain visible. Default `true` (reference). */
+    auto_scale: boolean;
+    /** Official marker stacking order. Default `normal`. */
+    z_order: "normal" | "aboveSeries" | "top";
+}
+export declare const KIND_TO_U8: Record<series_kind, number>;
+export declare const FEATURE_KIND_TO_U8: Record<feature_series_kind, number>;
+export declare function is_feature_series_kind(kind: series_kind): kind is feature_series_kind;
+export declare function is_footprint_series_kind(kind: series_kind): kind is "footprint";
+export declare function is_tpo_series_kind(kind: series_kind): kind is "tpo";
+/**
+ * Built-in drawing kinds. Each kind has an engine-owned placement rule, editable defining
+ * anchors, shared frame geometry, and a stable wire ID in DRAWING_KIND_TO_U8.
+ */
+export type drawing_kind = "trend_line" | "horizontal_line" | "horizontal_ray" | "vertical_line" | "rectangle" | "text" | "brush" | "path" | "long_position" | "short_position" | "fixed_range_volume_profile" | "anchored_volume_profile" | "anchored_vwap" | "price_range" | "date_range" | "date_price_range" | "ray" | "extended_line" | "info_line" | "trend_angle" | "cross_line" | "arrow_line" | "parallel_channel" | "regression_trend" | "flat_top_channel" | "flat_bottom_channel" | "disjoint_channel" | "polyline" | "highlighter" | "rotated_rectangle" | "ellipse" | "circle" | "triangle" | "arc" | "curve" | "double_curve" | "fibonacci_retracement" | "fibonacci_extension" | "fibonacci_channel" | "fibonacci_time_zones" | "fibonacci_trend_time" | "fibonacci_speed_fan" | "fibonacci_speed_arcs" | "fibonacci_circles" | "fibonacci_spiral" | "fibonacci_wedge" | "andrews_pitchfork" | "schiff_pitchfork" | "modified_schiff_pitchfork" | "inside_pitchfork" | "pitchfan" | "pattern_xabcd" | "pattern_cypher" | "pattern_abcd" | "pattern_head_shoulders" | "pattern_triangle" | "pattern_three_drives" | "elliott_impulse" | "elliott_correction" | "elliott_triangle" | "elliott_double_combination" | "elliott_triple_combination" | "cyclic_lines" | "time_cycles" | "sine_line" | "arrow_marker_up" | "arrow_marker_down" | "arrow_marker_left" | "arrow_marker_right" | "flag_mark" | "signpost" | "note" | "comment" | "callout" | "price_note" | "price_label" | "anchored_text" | "icon_stamp" | "gann_box" | "gann_square" | "gann_square_fixed" | "gann_fan" | "projection" | "forecast" | "bars_pattern";
+export declare const DRAWING_KIND_TO_U8: Record<drawing_kind, number>;
+/**
+ * One defining anchor of a drawing: a fractional logical bar index (integer values sit at bar
+ * centers — the engine's `logical_to_coordinate` space) plus a price. The unused coordinate of
+ * the full-span kinds is stored but never read (a horizontal line's `logical`, a vertical
+ * line's `price`).
+ */
+export interface drawing_point {
+    logical: number;
+    price: number;
+}
+/** Horizontal label alignment shared by every tool's text (canvas `textAlign` keywords). */
+export type drawing_text_h_align = "left" | "center" | "right";
+/** Vertical label alignment: above / inline with / below the tool at the selected horizontal slot. */
+export type drawing_text_v_align = "top" | "middle" | "bottom";
+export type drawing_line_cap = "none" | "arrow" | "circle";
+/**
+ * Per-drawing anchor magnet. `off` snaps only while the magnet modifier is held, `strong` always
+ * snaps to the nearest rendered OHLC price, and `weak` snaps only within 10 CSS px of it.
+ */
+export type drawing_magnet_mode = "off" | "weak" | "strong";
+export type drawing_interval_unit = "seconds" | "minutes" | "hours" | "days" | "weeks" | "months" | "ticks" | "ranges";
+export interface drawing_interval {
+    unit: drawing_interval_unit;
+    value: number;
+}
+export interface drawing_interval_visibility {
+    enabled: boolean;
+    intervals: drawing_interval[];
+}
+export type drawing_label_metric = "price" | "price_change" | "percent_change" | "ticks" | "bar_count" | "date_time_range" | "duration" | "angle" | "distance" | "volume_in_range";
+export type drawing_label_position = "above" | "on" | "below" | "inside" | "outside";
+export interface drawing_label_options {
+    metric: drawing_label_metric;
+    visible: boolean;
+    position: drawing_label_position;
+    text?: string;
+}
+export interface drawing_level {
+    value: number;
+    color: string;
+    visible: boolean;
+    style: string;
+    fill_between: boolean;
+    fill_color?: string;
+    label_visible: boolean;
+}
+export type drawing_wave_degree = "subminuette" | "minuette" | "minute" | "minor" | "intermediate" | "primary" | "cycle" | "supercycle" | "grand_supercycle";
+export type drawing_property_type = "boolean" | "number" | "integer" | "string" | "color" | "enum" | "points" | "levels" | "labels" | "interval_set";
+export type drawing_property_group = "general" | "inputs" | "style" | "text" | "coordinates" | "visibility";
+export interface drawing_property_descriptor {
+    name: string;
+    /** English display label. */
+    label: string;
+    /** Settings section; `general` properties belong to the object tree or toolbar, not a dialog. */
+    group: drawing_property_group;
+    /** Offered as a quick control on a floating drawing toolbar. */
+    toolbar?: boolean;
+    property_type: drawing_property_type;
+    default: unknown;
+    min?: number;
+    max?: number;
+    enum_values?: string[];
+}
+export interface drawing_property_schema {
+    revision: number;
+    kind: drawing_kind;
+    properties: drawing_property_descriptor[];
+}
+/** A built-in vector icon: the `icon_name` value and inline SVG markup for pickers. */
+export interface builtin_drawing_icon {
+    name: string;
+    svg: string;
+}
+export interface drawing_template {
+    name: string;
+    kind: drawing_kind;
+    options: Partial<drawing_options>;
+}
+export type drawing_kind_options = {
+    kind: "rectangle";
+    fill_color?: string;
+    preview_fill_color?: string;
+    border_visible: boolean;
+    middle_line_visible: boolean;
+    middle_line_color?: string;
+    middle_line_width: number;
+    middle_line_style: line_style;
+    show_labels: boolean;
+    axis_bands_visible: boolean;
+    label_color?: string;
+    label_text_color?: string;
+    snap_time_to_data: boolean;
+} | {
+    kind: "text";
+    box_color?: string;
+    box_border_color?: string;
+    box_border_width: number;
+} | {
+    kind: "anchored_text";
+    screen_x: number;
+    screen_y: number;
+    box_color?: string;
+    box_border_color?: string;
+    box_border_width: number;
+} | {
+    kind: "icon_stamp";
+    icon_name?: string;
+    icon_size: number;
+} | {
+    kind: "arrow_marker";
+    icon_size: number;
+} | {
+    kind: "bars_pattern";
+    mirror_x: boolean;
+    mirror_y: boolean;
+    mode: "bars" | "line_open" | "line_high" | "line_low" | "line_close";
+    bar_count: number;
+} | {
+    kind: "position";
+    levels: drawing_level[];
+    account_size: number;
+    risk_percent: number;
+} | {
+    kind: "levels";
+    levels: drawing_level[];
+    reverse: boolean;
+    log_scale: boolean;
+    show_prices: boolean;
+    show_values: boolean;
+    show_percents: boolean;
+    label_align: "left" | "center" | "right";
+} | {
+    kind: "gann_square";
+    levels: drawing_level[];
+    fans: drawing_level[];
+    arcs: drawing_level[];
+    reverse: boolean;
+    show_prices: boolean;
+    show_values: boolean;
+    show_percents: boolean;
+    label_align: "left" | "center" | "right";
+} | {
+    kind: "regression_trend";
+    source_id: number | null;
+    deviations: number;
+} | {
+    kind: "elliott";
+    wave_degree: drawing_wave_degree;
+} | {
+    kind: "generic";
+};
+/**
+ * A drawing's options (engine `Drawing`). Every tool can carry a text label placed by the
+ * 3×3 `text_h_align`/`text_v_align` against the tool's geometry. Colors parse per the engine's
+ * CSS rules; `""` for optional colors means "follow the default" (the border color at
+ * 20% alpha for a rectangle's fill, the chart's `layout.textColor` for labels), and
+ * `text_size: null` follows `layout.fontSize`.
+ */
+export interface drawing_options {
+    /** Hypothetical balance for Long/Short Position statistics (default 1,000); independent of broker orders. */
+    position_account_size: number;
+    /** Percentage of the hypothetical balance risked at the stop, 0–100 (default 25). */
+    position_risk_percent: number;
+    /** Optional source series ID for Regression Trend; null follows the pane's primary series. */
+    regression_source_id: number | null;
+    /** Residual standard deviations on each side of the Regression Trend center, from 0 to 10. */
+    regression_deviations: number;
+    name: string;
+    group_id: string;
+    revision: number;
+    visible: boolean;
+    locked: boolean;
+    z_order: number;
+    interval_visibility: drawing_interval_visibility;
+    stroke_start: drawing_line_cap;
+    stroke_end: drawing_line_cap;
+    extend_left: boolean;
+    extend_right: boolean;
+    fill_enabled: boolean;
+    magnet: drawing_magnet_mode;
+    labels: drawing_label_options[];
+    levels: drawing_level[];
+    gann_fans: drawing_level[];
+    gann_arcs: drawing_level[];
+    level_reverse: boolean;
+    level_log_scale: boolean;
+    level_show_prices: boolean;
+    level_show_values: boolean;
+    level_show_percents: boolean;
+    level_label_align: "left" | "center" | "right";
+    /** Elliott wave degree used in the vertex labels (default `"minor"`). */
+    wave_degree: drawing_wave_degree;
+    /** Pane-relative screen position for anchored text, 0 to 1. */
+    screen_x: number;
+    screen_y: number;
+    /** Icon stamp: a built-in icon name (`builtin_drawing_icons()`) or a registered image name. */
+    icon_name?: string;
+    icon_size: number;
+    bars_pattern_mirror_x: boolean;
+    bars_pattern_mirror_y: boolean;
+    bars_pattern_mode: "bars" | "line_open" | "line_high" | "line_low" | "line_close";
+    /** Price scale used for price-coordinate conversion (`overlay` is the pane's overlay scale). */
+    price_scale_id: "left" | "right" | "overlay";
+    /** Line/border color (default: the canonical primary token). */
+    color: string;
+    /** Stroke width in CSS px (default 2 for straight-line tools; 1 for shapes, channels, and level tools). */
+    width: number;
+    /** Stroke style (default `"dashed"` for Fibonacci tools, including their levels; `"solid"` otherwise). */
+    style: line_style;
+    /** Rectangle fill (default `""` = the border color at 20% alpha). Unused by other kinds. */
+    fill_color: string;
+    /** Interactive rectangle preview fill (`""` = `fill_color`). */
+    preview_fill_color: string;
+    /** Rectangle outline visibility (default false). */
+    border_visible: boolean;
+    /** Rectangle horizontal line through its vertical center, edge to edge (default false). Rectangle only. */
+    middle_line_visible: boolean;
+    /** Rectangle middle-line color (`""` = the border `color`). Rectangle only. */
+    middle_line_color: string;
+    /** Rectangle middle-line width in CSS px (default 1, the rectangle border width). Rectangle only. */
+    middle_line_width: number;
+    /** Rectangle middle-line style (default `"dashed"`). A middle-aligned label opens a gap in it. Rectangle only. */
+    middle_line_style: line_style;
+    /** Rectangle endpoint labels on the price and time axes. */
+    show_labels: boolean;
+    /** Official 15 CSS px rectangle shading in the price/time axis panes. */
+    axis_bands_visible: boolean;
+    /** Rectangle endpoint-label background (`""` = drawing color). */
+    label_color: string;
+    /** Rectangle endpoint-label text (`""` = automatic black/white contrast against `label_color`). */
+    label_text_color: string;
+    /** Snap rectangle x anchors to canonical data times. */
+    snap_time_to_data: boolean;
+    /** The tool's text label (`""` = none). */
+    text: string;
+    /** Label color (default `""` = the chart's `layout.textColor`). */
+    text_color: string;
+    /** Label glyph size in CSS px (`null` = the chart's `layout.fontSize`). */
+    text_size: number | null;
+    /** Label font weight (numeric CSS weight 100–900; `null` = normal 400, 700 = bold). */
+    text_weight: number | null;
+    /** Italic label glyphs (default `false`). */
+    text_italic: boolean;
+    /**
+     * Legacy boolean view of the label weight (`true` = semibold or heavier, i.e.
+     * `text_weight >= 600`). In patches, `text_bold: true` maps to weight 700 and `false`
+     * resets to normal when no explicit `text_weight` is given.
+     */
+    text_bold: boolean;
+    text_h_align: drawing_text_h_align;
+    text_v_align: drawing_text_v_align;
+    /** Text-tool container background (the public reference's text-box background; default `""` = none). */
+    box_color: string;
+    /** Text-tool container border color (default `""` = none). */
+    box_border_color: string;
+    /** Text-tool container border width in CSS px (default 1). */
+    box_border_width: number;
+    /** Price-axis tags for the drawing's key levels (POC/VAH/VAL on volume profiles; default false). */
+    price_labels_visible: boolean;
+    /** Volume-profile row count, 1 to 2,048 (default 100). Volume profile drawings only. */
+    profile_rows?: number;
+    /** Value-area share of total volume, above 0 to 100 (default 70). */
+    profile_value_area_percent?: number;
+    /** Histogram width as a percentage of the drawn range (default 30). */
+    profile_width_percent?: number;
+    /**
+     * Fixed range box only: its top and bottom follow the traded high and low (default true).
+     * Dragging a top or bottom handle sets it false, so the box limits the profiled prices.
+     */
+    profile_fit_prices?: boolean;
+    /** Delta histogram left of the spine (default true). */
+    profile_delta_visible?: boolean;
+    /** Point-of-control line (default true). */
+    profile_poc_visible?: boolean;
+    /** Value-area high/low lines in the drawing stroke (default true). */
+    profile_value_area_lines_visible?: boolean;
+    /** Profile palette as painted (CSS); patching `""` restores the engine default for that slot. */
+    profile_value_area_color?: string;
+    profile_volume_color?: string;
+    profile_positive_color?: string;
+    profile_negative_color?: string;
+    profile_poc_color?: string;
+}
+/** A drawing as listed by {@link chart_api.drawings}. This inspection shape is not persistence. */
+export interface drawing_info extends drawing_options {
+    id: number;
+    kind: drawing_kind;
+    pane_index: number;
+    points: drawing_point[];
+}
+/** Pane topology persisted by schema V1. Array order is pane order; IDs survive reordering. */
+export interface persisted_pane_v1 {
+    id: `pane-${number}`;
+    stretch_factor: number;
+    preserve_empty: boolean;
+}
+/** Stable semantic drawing style persisted by schema V1. Omitted fields restore defaults. */
+export interface persisted_drawing_style_v1 {
+    position_account_size?: number;
+    position_risk_percent?: number;
+    name?: string;
+    group_id?: string;
+    revision?: number;
+    visible?: boolean;
+    locked?: boolean;
+    z_order?: number;
+    interval_visibility?: drawing_interval_visibility;
+    stroke_start?: drawing_line_cap;
+    stroke_end?: drawing_line_cap;
+    extend_left?: boolean;
+    extend_right?: boolean;
+    fill_enabled?: boolean;
+    magnet?: drawing_magnet_mode;
+    labels?: drawing_label_options[];
+    levels?: drawing_level[];
+    /** Individually styled fan ratios on Gann square tools; each value is 0.01 to 100. */
+    gann_fans?: drawing_level[];
+    /** Individually styled quarter arcs on Gann square tools; each value is 0 to 1. */
+    gann_arcs?: drawing_level[];
+    level_reverse?: boolean;
+    level_log_scale?: boolean;
+    level_show_prices?: boolean;
+    level_show_values?: boolean;
+    level_show_percents?: boolean;
+    level_label_align?: "left" | "center" | "right";
+    wave_degree?: drawing_wave_degree;
+    screen_x?: number;
+    screen_y?: number;
+    /** Icon stamp: a built-in icon name (`builtin_drawing_icons()`) or a registered image name. */
+    icon_name?: string;
+    icon_size?: number;
+    /** Frozen OHLC sample for a bars-pattern ghost copy; at most 512 bars. */
+    bars_pattern?: Array<{
+        offset: number;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+    }>;
+    bars_pattern_mirror_x?: boolean;
+    bars_pattern_mirror_y?: boolean;
+    bars_pattern_mode?: "bars" | "line_open" | "line_high" | "line_low" | "line_close";
+    price_scale_id?: "left" | "right" | "overlay";
+    color?: string;
+    width?: number;
+    line_style?: line_style;
+    fill_color?: string;
+    preview_fill_color?: string;
+    border_visible?: boolean;
+    middle_line_visible?: boolean;
+    middle_line_color?: string;
+    middle_line_width?: number;
+    middle_line_style?: line_style;
+    show_labels?: boolean;
+    axis_bands_visible?: boolean;
+    label_color?: string;
+    label_text_color?: string;
+    snap_time_to_data?: boolean;
+    text?: string;
+    text_color?: string;
+    text_size?: number;
+    text_weight?: number;
+    text_italic?: boolean;
+    text_h_align?: drawing_text_h_align;
+    text_v_align?: drawing_text_v_align;
+    box_color?: string;
+    box_border_color?: string;
+    box_border_width?: number;
+    price_labels_visible?: boolean;
+    /** Volume-profile drawing presentation; omitted colors restore the engine defaults. */
+    volume_profile?: {
+        rows: number;
+        value_area_percent: number;
+        width_percent: number;
+        fit_prices?: boolean;
+        delta_visible: boolean;
+        poc_visible: boolean;
+        value_area_lines_visible: boolean;
+        value_area_color?: string;
+        volume_color?: string;
+        positive_color?: string;
+        negative_color?: string;
+        poc_color?: string;
+    };
+}
+/** One semantic drawing in the durable V1 persistence contract. */
+export interface persisted_drawing_v1 {
+    id: number;
+    kind: drawing_kind;
+    pane_id: `pane-${number}`;
+    anchors: drawing_point[];
+    style?: persisted_drawing_style_v1;
+}
+/** Versioned chart persistence V1: pane topology and built-in drawings only. */
+export interface chart_state_v1 {
+    schema: "aeris_charts-state";
+    schema_version: 1;
+    panes: persisted_pane_v1[];
+    drawings: persisted_drawing_v1[];
+}
+export interface trade_stream_stats {
+    revision: number;
+    stream_capacity_bytes: number;
+    dependent_count: number;
+    dependent_rebuilds: number;
+    dependent_incremental_updates: number;
+}
+export interface replay_seek_stats {
+    previous_clock_micros: number | null;
+    clock_micros: number | null;
+    visible_trades: number;
+    rebuilt_trades: number;
+    incremental_trades: number;
+}
+export interface replay_clock_stats extends replay_seek_stats {
+    stream_count: number;
+    depth_stream_count: number;
+    visible_depth_events: number;
+    rebuilt_depth_events: number;
+}
+/**
+ * Bar replay mode. `selecting` arms the engine's trim cursor: the next click on the main pane
+ * chooses the last visible bar, a drag still pans, and Escape cancels.
+ */
+export type replay_phase = "off" | "selecting" | "paused" | "playing";
+/** One replay step reveals one bar, or moves the clock by a fixed interval (intrabar on trade streams). */
+export type replay_step = {
+    kind: "bar";
+} | {
+    kind: "interval";
+    micros: number;
+};
+/** The bar replay state a host toolbar renders. */
+export interface replay_state {
+    phase: replay_phase;
+    /** The chart replay clock; `null` shows all data. */
+    clock_micros: number | null;
+    /** Playback steps per second, 0.1 to 10. */
+    speed: number;
+    step: replay_step;
+    can_step_back: boolean;
+    /** `false` once replay has revealed all retained history. */
+    can_step_forward: boolean;
+}
+export type replay_change_handler = (state: replay_state) => void;
+/** V2 adds engine-owned general pane, axis, dataset, and series state. */
+export interface chart_state_v2 {
+    schema: "aeris_charts-state";
+    schema_version: 2;
+    panes: (persisted_pane_v1 & {
+        horizontal_domain: unknown;
+    })[];
+    drawings: persisted_drawing_v1[];
+    axes: Record<string, unknown>[];
+    datasets: {
+        id: `dataset-${number}`;
+        input: Record<string, unknown>;
+        labels?: (string | null)[];
+    }[];
+    series: {
+        kind: "XyLine" | "XyArea" | "RangeArea" | "RangeBar" | "ErrorBar" | "Column" | "Histogram" | "HorizontalBar" | "BoxPlot" | "HeatmapGrid" | "Scatter" | "Bubble" | "Pie" | "Radar" | "PolarArea" | "RadialBar" | "Waterfall" | "Bullet";
+        pane: number;
+        dataset: `dataset-${number}`;
+        x_axis_id: string;
+        y_axis_id: string;
+        visible: boolean;
+        title: string;
+        color: string | null;
+        point_radius: number;
+        line_width: number;
+        line_style: "solid" | "dotted" | "dashed";
+        fill_gradient?: [string, string] | null;
+        baseline_value: number | null;
+        baseline_policy?: "Zero" | "DomainMin" | "DomainMax";
+        data_labels: boolean;
+        group_id: string | null;
+        stack_id: string | null;
+        stack_mode: "Normal" | "Cumulative" | "Silhouette" | "Wiggle" | "Percent" | "Positive";
+        /** Absent in documents written before histogram series. */
+        histogram?: {
+            bin_count: number | null;
+            bin_width: number | null;
+            normalization: "Count" | "Percent" | "Density";
+            cumulative: boolean;
+        };
+        /** Absent in documents written before the statistics families. */
+        stats?: {
+            kernel: "Gaussian" | "Epanechnikov";
+            bandwidth: "Scott" | "Silverman" | {
+                Explicit: number;
+            };
+            grid: number;
+            violin_overlay: "None" | "Quartiles" | "Box";
+            violin_side: "Full" | "Left" | "Right";
+            area: boolean;
+            overlap: number;
+            jitter: number;
+            qq_distribution: "Normal";
+            thresholds: number;
+            contour_fill: boolean;
+            contour_lines: boolean;
+            smooth: boolean;
+            hexbin_radius: number;
+        };
+        /** Absent in documents written before waterfall, bullet, lollipop, slope, and bump options. */
+        bar_mark?: "Bar" | "Lollipop" | "Dumbbell";
+        waterfall?: {
+            increase_color: string | null;
+            decrease_color: string | null;
+            subtotal_color: string | null;
+            total_color: string | null;
+            connectors: boolean;
+        };
+        end_labels?: "None" | "Start" | "End" | "Both";
+        rank?: "Dense" | "Competition" | null;
+    }[];
+    /** Layout records are absent in older V2 documents. */
+    layout_datasets?: {
+        id: `layout-dataset-${number}`;
+        input: Record<string, unknown>;
+    }[];
+    layout_series?: {
+        dataset: `layout-dataset-${number}`;
+        pane: number;
+        kind: "Funnel" | "Treemap" | "Sankey" | "Sunburst" | "Gantt" | "CalendarHeatmap" | "Marimekko";
+        title: string;
+        color: string;
+        data_labels?: boolean;
+        visible?: boolean;
+    }[];
+    chart_options: Record<string, unknown>;
+    /** Persisted opt-in duration; active animation progress is runtime-only. */
+    general_transition_duration_ms?: number;
+}
+export interface chart_state_v3 {
+    schema: "aeris_charts-state";
+    schema_version: 3;
+    panes: persisted_pane_v1[];
+    drawings: persisted_drawing_v1[];
+    indicators: unknown[];
+    /** Price-transform definitions of live series; absent when no series is transformed. */
+    price_transforms?: {
+        series_id: number;
+        options: synthetic_bar_options;
+    }[];
+    /** Persisted opt-in duration; active animation progress is runtime-only. */
+    general_transition_duration_ms?: number;
+}
+export type chart_state = chart_state_v1 | chart_state_v2 | chart_state_v3;
+/** Counts returned after one validated, atomic state restore. */
+export interface persistence_restore_result {
+    schema_version: 1 | 2 | 3;
+    panes: number;
+    drawings: number;
+    points: number;
+    /** V3 pending binding identities; absent on legacy V1/V2 documents. */
+    unresolved_custom_studies?: number[];
+}
+/** A live handle to an engine-owned drawing. */
+export interface drawing_api {
+    readonly id: number;
+    kind(): drawing_kind;
+    pane_index(): number;
+    /** The defining anchors. */
+    points(): drawing_point[];
+    /** Replace the anchors (validated against the kind's anchor count). */
+    set_points(points: drawing_point[]): void;
+    /** The current options (reference `options()`). */
+    options(): drawing_options;
+    /** Deep-merge a patch onto this drawing's options (reference `applyOptions`). */
+    apply_options(options: Partial<drawing_options>): void;
+    /** Remove the drawing from the chart. */
+    remove(): void;
+}
+export type drawing_created_handler = (drawing: drawing_api) => void;
+export type drawing_tool_change_handler = (tool: drawing_kind | null) => void;
+/** Host-defined UTC interval. All boundaries are start-inclusive and end-exclusive. */
+export interface resample_boundary {
+    startTime: number;
+    endTime: number;
+    sessionId: number;
+}
+/** Buckets restart at each host-supplied boundary; the engine does not infer a timezone. */
+export interface resample_options {
+    intervalSeconds: number;
+    boundaries: readonly resample_boundary[];
+}
+export interface resampled_bar {
+    timestamp: number;
+    sessionId: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+    sourceRows: number;
+}
+/** Tape profiles are tick-accurate; candle profiles distribute OHLCV approximately. */
+export type profile_source = {
+    kind: "tape";
+    stream_id: number;
+} | {
+    kind: "candles";
+    price_series: number;
+    volume_series: number;
+};
+export interface profile_request {
+    source: profile_source;
+    startTimestampMicros: number;
+    endTimestampMicros: number;
+    tickSize: number;
+    rowCount: number;
+    valueAreaPercent: number;
+}
+export interface profile_row_snapshot {
+    low: number;
+    high: number;
+    bidVolume: number;
+    askVolume: number;
+    unknownVolume: number;
+    totalVolume: number;
+    delta: number;
+}
+export interface profile_snapshot {
+    startTimestampMicros: number;
+    endTimestampMicros: number;
+    sessionId: number;
+    tickSize: number;
+    rows: readonly profile_row_snapshot[];
+    totalVolume: number;
+    poc: number | null;
+    valueAreaLow: number | null;
+    valueAreaHigh: number | null;
+    developing: readonly {
+        timestampMicros: number;
+        poc: number;
+        valueAreaLow: number;
+        valueAreaHigh: number;
+    }[];
+    candleApproximation: boolean;
+}
+export interface naked_profile_level {
+    sessionId: number;
+    price: number;
+    kind: "poc" | "value_area_low" | "value_area_high";
+    startTimestampMicros: number;
+    touchedTimestampMicros: number | null;
+}
+export interface tpo_request {
+    priceSeries: number;
+    boundaries: readonly resample_boundary[];
+    periodSeconds: number;
+    tickSize: number;
+    valueAreaPercent: number;
+    initialBalancePeriods: number;
+}
+export interface tpo_snapshot {
+    sessionId: number;
+    startTimestampMicros: number;
+    endTimestampMicros: number;
+    rows: readonly {
+        price: number;
+        periods: readonly number[];
+        singlePrint: boolean;
+    }[];
+    poc: number | null;
+    valueAreaLow: number | null;
+    valueAreaHigh: number | null;
+    initialBalanceLow: number | null;
+    initialBalanceHigh: number | null;
+}
+/** Rules and colors of a `"tpo"` series. */
+export interface tpo_series_options {
+    /** Length of one TPO period (one letter), in seconds. Default 1800. */
+    periodSeconds: number;
+    /** Price height of one profile row. */
+    tickSize: number;
+    valueAreaPercent: number;
+    initialBalancePeriods: number;
+    mode: "letters" | "blocks";
+    color: string;
+    valueAreaColor: string;
+    singlePrintColor: string;
+    pocColor: string;
+    initialBalanceColor: string;
+}
+export interface periodic_profile_presentation_request {
+    source: profile_source;
+    boundaries: readonly resample_boundary[];
+    tickSize: number;
+    rowCount: number;
+    valueAreaPercent: number;
+}
+export interface periodic_profile_presentation_options {
+    mode: "bid_ask" | "delta" | "total";
+    widthPercent: number;
+    bidColor: string;
+    askColor: string;
+    unknownColor: string;
+    pocColor: string;
+    valueAreaColor: string;
+    /** Extend POC and value-area levels to the first later tape tick or candle-range touch. */
+    extendNakedLevels: boolean;
+    /** Trace sampled developing POC and value-area levels for tape or candle periods. */
+    showDeveloping: boolean;
+}
+export interface anchored_vwap_point {
+    timestampMicros: number;
+    vwap: number;
+    upperBand: number;
+    lowerBand: number;
+}
+export interface profile_drawing_options {
+    source: profile_source;
+    tickSize: number;
+    rowCount: number;
+    valueAreaPercent: number;
+    bandMultiplier: number;
+    widthPercent: number;
+}
+export type profile_drawing_snapshot = {
+    kind: "volume";
+    data: profile_snapshot;
+} | {
+    kind: "vwap";
+    data: readonly anchored_vwap_point[];
+};
+/** A single data series on the chart. */
+export interface series_api {
+    /** Camel-case aliases; both naming styles operate on this same series handle. */
+    setData: series_api["set_data"];
+    setDataTyped: series_api["set_data_typed"];
+    updateTyped: series_api["update_typed"];
+    applyOptions: series_api["apply_options"];
+    moveToPane: series_api["move_to_pane"];
+    priceScale: series_api["price_scale"];
+    /** Replace the series' data. Accepts OHLC or single-value points; packed to typed arrays here. */
+    set_data(data: readonly series_data[]): void;
+    /** Diagnostics from the most recent set/update call; `null` is the allocation-free clean case. */
+    last_ingestion_diagnostics(): ingestion_diagnostics | null;
+    /**
+     * Replace the series' data from already-packed columns, skipping `set_data`'s per-object
+     * JS packing. `times` are UTC seconds (the engine's time unit); single-value series
+     * (line/area/histogram) repeat their value in all four price channels. All arrays must
+     * share a length; the engine's usual sort/dedupe/sanitize rules apply.
+     *
+     * **Input arrays are never mutated and never retained.** The engine copies each column into
+     * its own storage on the way in and does all sorting, deduping and sanitizing on those copies.
+     * Two consequences callers can rely on:
+     * - Passing the **same** view as several channels is safe. A single-value series may pass one
+     *   array as all four of `open`/`high`/`low`/`close`, which is the documented way to express
+     *   the "repeat their value in all four price channels" contract.
+     * - Views over a `SharedArrayBuffer` are safe, and the buffer may be rewritten by the producer
+     *   as soon as this call returns.
+     */
+    set_data_typed(columns: ohlc_columns): void;
+    /** Append a new point or replace the last one (streaming). */
+    update(point: series_data): void;
+    /**
+     * Streaming counterpart to {@link set_data_typed}: append (or replace-last) a **batch** of
+     * points from already-packed columns, so a high-rate feed never allocates a JS object per tick.
+     * Same column layout and same `times` unit (UTC seconds); single-value series repeat their value
+     * in all four price channels; all-NaN rows are whitespace.
+     *
+     * Rows whose time equals the series' current last point replace it; later rows append. The batch
+     * is first repaired exactly as `set_data_typed` repairs a full replace — non-finite rows dropped,
+     * stable sort by time, duplicate times collapsed last-wins — and then applied in ascending time
+     * order. A row that lands *before* the series' last point is a mid-history insert, handled the
+     * same way `update` handles one.
+     *
+     * A one-row batch is observably identical to {@link update} with the equivalent point: same
+     * rendered output, same `data()`, and one `data_changed` notification with scope `"update"`. A
+     * 500-row batch is also exactly one notification, not 500.
+     *
+     * Cost for the streaming shape — every row at or past the chart's last timestamp — is linear in
+     * the batch and independent of series length, because each row takes the engine's single-append
+     * fast path. A
+     * row that lands *before* the last timestamp is a mid-history insert and costs a reindex of the
+     * shared time axis, exactly as the same row would through {@link update}; a batch of those is
+     * therefore linear in the batch times the series length, not a bulk reindex. Use
+     * {@link set_data_typed} to rewrite history.
+     *
+     * The input arrays are never mutated or retained — see {@link set_data_typed} for the aliasing
+     * guarantee this shares.
+     */
+    update_typed(columns: ohlc_columns): void;
+    /**
+     * Bind a `SharedArrayBuffer` ring that the engine drains **once per frame**, or pass `null` to
+     * unbind and return to explicit {@link update}/{@link update_typed} calls.
+     *
+     * This decouples tick delivery from engine calls structurally rather than by convention: there
+     * is **no engine call per tick** and the host never decides when to flush. Total frame CPU still
+     * includes applying every delivered row and is reported by {@link frame_stats.cpu_ms}; use an
+     * appropriate capacity and {@link series_options.max_points} for sustained high-rate streams.
+     *
+     * Rows are not materialized as JS values. Each drain copies the contiguous run(s) of new row
+     * bytes straight into engine memory (at most two `TypedArray.set` calls per attempt — a ring wrap
+     * splits the window) and parses them there, with a staging buffer sized once at bind time. Drain
+     * planning and copying allocate nothing per row or frame.
+     *
+     * Rows apply in ring order, each appending or replacing the series' last point exactly as
+     * {@link update} would; a non-finite row is dropped. Unlike {@link update_typed} there is no
+     * per-batch sort or dedupe — a ring is a stream, and its producer is expected to write in
+     * ascending time.
+     *
+     * **Producer overrun.** If the producer wrote more than `capacity` rows between two drains, the
+     * oldest of them have already been overwritten. The engine then targets the newest `capacity`
+     * rows and adds the shortfall to {@link frame_stats.ring_overruns}. With
+     * {@link ring_source_layout.sequence_offset}, every selected slot is validated before and after
+     * copying, so a concurrent wrap is retried instead of rendering a torn mixed-generation window.
+     *
+     * Binding starts from the producer's current cursor, so it picks up new rows rather than
+     * replaying whatever is already sitting in the ring. Binding a second ring to the same series
+     * replaces the first. `set_ring_source(null)` releases the engine's views over the buffer, as
+     * does removing the series.
+     *
+     * The cost model of {@link update_typed} applies to the drained rows as well: rows at or past the
+     * chart's last timestamp take the engine's single-append fast path, while a row landing before it
+     * costs a reindex of the shared time axis. On a chart with several series, keep the ring-fed one at
+     * the global tip.
+     *
+     * Composes with {@link series_options.max_points}: a ring-fed series with a cap holds its window
+     * and plateaus in memory, which is the shape a long live session wants.
+     *
+     * Requires the page to be cross-origin isolated, since that is what makes `SharedArrayBuffer`
+     * available at all. Throws if the layout is unusable (a channel that overruns `row_stride`, a
+     * misaligned cursor, a ring that does not fit the buffer, zero capacity).
+     */
+    set_ring_source(buffer: SharedArrayBuffer | null, layout?: ring_source_layout): void;
+    /**
+     * Push the current bid/ask quotes (industry-standard; render with `bid_ask_visible: true`).
+     * Pass `null` to hide a side.
+     */
+    set_bid_ask(bid: number | null, ask: number | null): void;
+    /**
+     * Remove `count` data items from the end of the series (reference `ISeriesApi.pop`, default
+     * `count: 1`). Divergence: reference returns the removed items; here the engine drops them and the
+     * method returns nothing.
+     */
+    pop(count?: number): void;
+    /**
+     * The last value data of the series (reference `ISeriesApi.lastValueData`). `global_last: false`
+     * reads the last value in the current visible range, `true` the absolute last value. Returns
+     * `null` when the series has no value.
+     */
+    last_value_data(global_last?: boolean): last_value_data | null;
+    /**
+     * The current price formatter of this series (reference `ISeriesApi.priceFormatter`). Divergence:
+     * reference returns an `IPriceFormatter` object with a `format` method; this method returns
+     * the bare format function `(price) => string`.
+     */
+    price_formatter(): (price: number) => string;
+    /** Current pane index of this live series. */
+    pane_index(): number;
+    /** Apply series options (currently: `color`). */
+    apply_options(options: Partial<any_series_options>): void;
+    /** The current (deep-merged) options of this series (reference `ISeriesApi.options`). */
+    options(): any_series_options;
+    /** Change how the primary series is drawn (candlestick/bar/line/area/histogram). */
+    set_type(kind: series_kind): void;
+    /**
+     * Move this series into stacked pane `pane_index` (0 = price pane), creating it if needed. A
+     * created pane takes `stretch`, or the compact separate-pane height when omitted.
+     */
+    move_to_pane(pane_index: number, stretch?: number): void;
+    /** Add a horizontal price line on this series; returns a handle with `.remove()`. */
+    create_price_line(options: price_line_options): price_line_api;
+    /** Replace this series' per-bar markers (pass `[]` to clear). Roadmap Phase B4. */
+    set_markers(markers: readonly series_marker[], options?: Partial<series_marker_options>): void;
+    /** Price-scale handle currently used by this series. */
+    price_scale(): price_scale_api;
+    /** Pane-local id of the price scale currently owning this series. */
+    price_scale_id(): string;
+    /** Rebind to an existing price scale in this pane without recreating the series. */
+    move_to_price_scale(id: string): void;
+    price_to_coordinate(price: number): number | null;
+    coordinate_to_price(coordinate: number): number | null;
+    bars_in_logical_range(range: logical_range): bars_info | null;
+    data_by_index(logical_index: number, mismatch_direction?: mismatch_direction): series_data | null;
+    data(): readonly series_data[];
+    series_type(): series_kind;
+    /** Current engine-owned style snapshot for this output, or `null` for a plain series. */
+    indicator_output_style(): indicator_output_style | null;
+    /** Atomically update an indicator output's persisted presentation style. */
+    set_indicator_output_style(patch: Partial<indicator_output_style>): boolean;
+    subscribe_data_changed(handler: data_changed_handler): void;
+    unsubscribe_data_changed(handler: data_changed_handler): void;
+    /**
+     * Attach a series primitive (reference `ISeriesApi.attachPrimitive`, plugin platform Phase C-b)
+     * and repaint. The primitive records backend-neutral draw commands (no raw canvas), so its
+     * output is identical on the WebGPU and Canvas2D backends; its price converter and price-axis
+     * labels resolve on this series' price scale, and its `autoscale_info` hook can expand that
+     * scale's range. Divergence: reference returns `void`; here the returned handle detaches. Removing
+     * the series auto-detaches its primitives (the `detached` hook fires).
+     */
+    /** @experimental Host primitive contract; extension persistence is host-owned. */
+    attach_primitive(primitive: series_primitive): series_primitive_handle;
+    /**
+     * The indicator lineage of this series when it is an output of
+     * {@link chart_api.add_sma}/{@link chart_api.add_ema}/{@link chart_api.add_bollinger}, or
+     * `null` for a plain (or source) series. Combined with {@link pane_api.get_series} and
+     * {@link pane_api.get_geometry} this is the enumeration half of platform indicator chrome:
+     * which indicators are active, where they live, and what to label them.
+     */
+    indicator_info(): indicator_info | null;
+    /** The engine-side series id. */
+    readonly id: number;
+}
+/** A first-class tick-driven footprint handle. Generic OHLC setters are rejected at runtime. */
+export interface footprint_series_api extends series_api {
+    set_trades(trades: readonly footprint_trade[]): void;
+    set_trades_typed(columns: footprint_trade_columns): void;
+    update_trades(trades: readonly footprint_trade[]): "tip" | "historical";
+    update_trades_typed(columns: footprint_trade_columns): "tip" | "historical";
+    update_trade(trade: footprint_trade): "tip" | "historical";
+    footprint_bars(): readonly footprint_bar[];
+    footprint_bar(index: number): footprint_bar | null;
+    /**
+     * Open the footprint view: bars wide enough for `bid × ask` numbers at the real-time edge,
+     * with every footprint price scale back on autoscale. Call it when the user enters footprint
+     * mode, not on data updates, so the user's own zoom is kept afterwards.
+     */
+    fit_viewport(): void;
+    apply_options(options: Partial<any_series_options> & Partial<footprint_series_options>): void;
+    options(): any_series_options & footprint_series_options;
+    series_type(): "footprint";
+}
+/** A market profile (TPO) series. Its data is ordinary OHLC bars (`set_data`, `update`). */
+export interface tpo_series_api extends series_api {
+    /**
+     * Replace the sessions the series draws. Consecutive boundaries sharing a `sessionId` form one
+     * profile; boundaries must be ascending and non-overlapping. An empty list draws nothing.
+     */
+    set_sessions(boundaries: readonly resample_boundary[]): void;
+    /** The profiles currently drawn, oldest session first. */
+    profiles(): readonly tpo_snapshot[];
+    apply_options(options: Partial<any_series_options> & Partial<tpo_series_options>): void;
+    series_type(): "tpo";
+}
+/** The horizontal (time) scale. */
+export interface time_scale_api {
+    fitContent: time_scale_api["fit_content"];
+    scrollToRealTime: time_scale_api["scroll_to_real_time"];
+    setVisibleRange: time_scale_api["set_visible_range"];
+    getVisibleRange: time_scale_api["get_visible_range"];
+    setVisibleLogicalRange: time_scale_api["set_visible_logical_range"];
+    getVisibleLogicalRange: time_scale_api["get_visible_logical_range"];
+    /** Distance in logical bars between the latest point and the right edge. */
+    scroll_position(): number;
+    /**
+     * Scroll to a logical right-edge position. `animated: true` eases over ~300 ms with a cubic
+     * ease-out (suppressed under prefers-reduced-motion); falsy applies immediately.
+     */
+    scroll_to_position(position: number, animated: boolean): void;
+    /** Return the latest point to the real-time edge. */
+    scroll_to_real_time(): void;
+    /** Restore configured default spacing and right offset. */
+    reset_time_scale(): void;
+    fit_content(): void;
+    apply_options(options: Partial<time_scale_options>): void;
+    options(): time_scale_options;
+    get_visible_logical_range(): logical_range | null;
+    set_visible_logical_range(range: logical_range): void;
+    get_visible_range(): time_range | null;
+    set_visible_range(range: time_range): void;
+    /** Fire after the visible logical range changes. */
+    subscribe_visible_logical_range_change(handler: visible_logical_range_handler): void;
+    unsubscribe_visible_logical_range_change(handler: visible_logical_range_handler): void;
+    /** Fire after the visible time range changes. */
+    subscribe_visible_time_range_change(handler: visible_time_range_handler): void;
+    unsubscribe_visible_time_range_change(handler: visible_time_range_handler): void;
+    /** Fire after the time scale's media size changes (reference `subscribeSizeChange`). */
+    subscribe_size_change(handler: size_change_handler): void;
+    unsubscribe_size_change(handler: size_change_handler): void;
+    time_to_coordinate(time: number): number | null;
+    coordinate_to_time(x: number): number | null;
+    logical_to_coordinate(logical: number): number | null;
+    coordinate_to_logical(x: number): number | null;
+    /** Exact timestamp lookup, or reference-compatible lower-bound lookup when `find_nearest` is true. */
+    time_to_index(time: number, find_nearest?: boolean): number | null;
+    /** Current media-coordinate width of the horizontal scale. */
+    width(): number;
+    /** Current media-coordinate height of the horizontal axis, or zero when hidden. */
+    height(): number;
+}
+/** A pane price scale. The handle becomes stale when its pane or named scale is removed. */
+export interface price_scale_api {
+    applyOptions: price_scale_api["apply_options"];
+    setVisibleRange: price_scale_api["set_visible_range"];
+    getVisibleRange: price_scale_api["get_visible_range"];
+    apply_options(options: deep_partial<price_scale_options>): void;
+    options(): price_scale_options;
+    width(): number;
+    set_visible_range(range: price_range): void;
+    get_visible_range(): price_range | null;
+    set_auto_scale(on: boolean): void;
+}
+/** A stacked pane (roadmap Phase B1), informed by common public chart APIs. */
+export interface pane_api {
+    paneIndex: pane_api["pane_index"];
+    /** This pane's current index (0 = top/price pane). Throws after this pane is removed. */
+    pane_index(): number;
+    /** Current CSS height in px (from the last layout pass). */
+    get_height(): number;
+    /**
+     * This pane's content-area geometry in CSS px relative to the chart container's top-left
+     * (from the last layout pass). Absolutely-position platform chrome against it — e.g. a
+     * industry-standard indicator chip pinned at `{ left, top }` of the pane. Operations on a
+     * removed pane handle throw instead of silently targeting a replacement pane.
+     */
+    get_geometry(): pane_geometry;
+    /** Resize this pane to `height` CSS px, absorbing the delta from its neighbour. */
+    set_height(height: number): void;
+    /** This pane's relative stretch factor (height weight). */
+    get_stretch_factor(): number;
+    /** Set this pane's relative stretch factor. */
+    set_stretch_factor(factor: number): void;
+    /**
+     * Move this pane to the `target` index (reference `IPaneApi.moveTo`). Returns `false` without
+     * changing anything when the target index is rejected. A removed handle throws.
+     * Divergence: reference returns `void`.
+     */
+    move_to(target: number): boolean;
+    /** Whether this pane is kept while it has no series (reference `IPaneApi.preserveEmptyPane`). */
+    preserve_empty_pane(): boolean;
+    /** Set whether to keep this pane while it has no series (reference `IPaneApi.setPreserveEmptyPane`). */
+    set_preserve_empty_pane(flag: boolean): void;
+    /** The series attached to this pane, as live handles (reference `IPaneApi.getSeries`). */
+    get_series(): (series_api | general_series_api)[];
+    /**
+     * Attach a pane primitive (reference `IPaneApi.attachPrimitive`, plugin platform Phase C-a) and
+     * repaint. The primitive records backend-neutral draw commands (no raw canvas), so its
+     * output is identical on the WebGPU and Canvas2D backends. Divergence: reference returns `void`;
+     * here the returned handle detaches. The pane binding is by index — it does not follow
+     * later pane moves/removals (a removed pane's primitives draw nowhere until detached).
+     */
+    /** @experimental Host primitive contract; extension persistence is host-owned. */
+    attach_primitive(primitive: pane_primitive): pane_primitive_handle;
+    /**
+     * Attach a canvas primitive (plugin platform Phase C-e — the Canvas2D escape hatch) and
+     * repaint. The primitive paints with arbitrary Canvas2D calls on the plugin overlay canvas
+     * through a reference-style `CanvasRenderingTarget2D` mirror, so reference plugin renderers
+     * port near-verbatim. Plugin limits remain explicit: plugin
+     * content is Canvas2D-only, always above the whole pane (no pane scissor, no z-ordering
+     * between engine layers — `normal`/`top` only order among canvas views) and below the axis
+     * chrome/crosshair. Divergence: reference returns `void`; here the returned handle detaches.
+     */
+    /** @experimental Package-side Canvas2D extension; persistence is host-owned. */
+    attach_canvas_primitive(primitive: canvas_primitive): canvas_primitive_handle;
+    /**
+     * This pane's price scale by id (reference `IPaneApi.priceScale`): `"left"`/`"right"` for the
+     * built-ins, `""` for overlay, or a host-created pane-local named scale. Unknown IDs throw.
+     */
+    price_scale(id: string): price_scale_api;
+}
+export interface general_pane_series_composition {
+    /** Stable host key. Reuse it with `current` to retain the engine identity. */
+    key: string;
+    kind: general_series_kind;
+    options: Omit<general_series_options, "pane"> & {
+        pane?: number;
+    };
+    data: readonly (general_xy_row | bubble_row | range_area_row | error_bar_row | box_plot_row | waterfall_row | bullet_row | heatmap_grid_row | histogram_row | matrix_row)[];
+    current?: general_series_api;
+}
+export interface general_pane_reference_composition {
+    /** Stable host key. Reuse it with `current` to retain the engine identity. */
+    key: string;
+    options: general_reference_options extends infer Option ? Option extends general_reference_options ? Omit<Option, "pane"> & {
+        pane?: number;
+    } : never : never;
+    current?: general_reference_api;
+}
+/** Complete desired graph for one atomic general-pane composition. */
+export interface general_pane_composition {
+    pane: number | pane_api;
+    axes: readonly (Omit<general_axis_options, "pane"> & {
+        pane?: number;
+    })[];
+    series: readonly general_pane_series_composition[];
+    references?: readonly general_pane_reference_composition[];
+}
+export interface general_pane_composition_result {
+    axes: readonly general_axis_api[];
+    series: readonly {
+        key: string;
+        handle: general_series_api;
+    }[];
+    references: readonly {
+        key: string;
+        handle: general_reference_api;
+    }[];
+}
+export type alert_price_scale = "right" | "left" | "overlay";
+export type alert_condition = "crossing" | "crossing_up" | "crossing_down" | "greater_than" | "less_than";
+/**
+ * Alert evaluation frequency retained by the chart for visual fidelity. Regular live-price
+ * alerts normally use `only_once` or `every_time`; interval-dependent hosts may also expose the
+ * per-bar and per-minute modes. Aeris does not evaluate or deliver alerts.
+ */
+export type alert_frequency = "only_once" | "every_time" | "once_per_bar" | "once_per_bar_close" | "once_per_minute";
+export type alert_line_status = "active" | "triggered" | "expired";
+/** Host-authoritative alert indicator rendered by the shared engine frame. */
+export interface alert_line {
+    id: string;
+    pane_index?: number;
+    price_scale?: alert_price_scale;
+    price: number;
+    condition?: alert_condition;
+    frequency?: alert_frequency;
+    status?: alert_line_status;
+    /** Optional host metadata. The chart's axis tag always renders the formatted `price`. */
+    label?: string;
+}
+export interface alert_snapshot {
+    lines?: alert_line[];
+}
+/** Exact chart location emitted when the crosshair's multipurpose action button is clicked. */
+export interface crosshair_action_request {
+    sequence: number;
+    pane_index: number;
+    price_scale_id: string;
+    price: number;
+}
+export type crosshair_action_request_handler = (request: crosshair_action_request) => void;
+/**
+ * Alert presentation boundary. The host owns dialogs, persistence, condition evaluation,
+ * expiration, notifications, and server/background delivery; Aeris owns the backend-neutral
+ * line indicators. The multipurpose crosshair action button belongs to {@link chart_api}.
+ */
+export interface alert_api {
+    apply_snapshot(snapshot: alert_snapshot): void;
+    state(): Required<alert_snapshot>;
+    update_line(line: alert_line): void;
+    remove_line(id: string): boolean;
+}
+export type position_side = "long" | "short";
+export type order_side = "buy" | "sell";
+export type order_kind = "market" | "limit" | "stop" | "stop_limit";
+export type order_role = "working" | "stop_loss" | "take_profit";
+export type order_status = "pending_submit" | "working" | "pending_modify" | "partially_filled" | "filled" | "pending_cancel" | "cancelled" | "rejected" | "expired";
+export type trading_price_scale = "right" | "left" | "overlay";
+export interface instrument_metadata {
+    tick_size?: number;
+    price_precision?: number;
+    quantity_precision?: number;
+    minimum_quantity?: number;
+    point_value?: number;
+    currency?: string;
+}
+export interface trading_position {
+    id: string;
+    account_id?: string;
+    pane_index?: number;
+    price_scale?: trading_price_scale;
+    side: position_side;
+    average_price: number;
+    quantity: number;
+    display_pnl?: number;
+    currency?: string;
+    annotations?: trading_annotation[];
+}
+export type trading_annotation_tone = "neutral" | "info" | "warning" | "danger";
+export type trading_annotation_placement = "inline" | "above" | "below";
+export interface trading_annotation {
+    id: string;
+    text: string;
+    tone?: trading_annotation_tone;
+    tooltip?: string;
+    placement?: trading_annotation_placement;
+}
+export interface working_order {
+    id: string;
+    account_id?: string;
+    pane_index?: number;
+    price_scale?: trading_price_scale;
+    side: order_side;
+    kind: order_kind;
+    role?: order_role;
+    status: order_status;
+    price: number;
+    stop_price?: number;
+    trailing_trigger_price?: number;
+    break_even_trigger_price?: number;
+    quantity: number;
+    filled_quantity?: number;
+    position_id?: string;
+    parent_order_id?: string;
+    bracket_id?: string;
+    oco_group_id?: string;
+    revision?: number;
+    annotations?: trading_annotation[];
+}
+export interface trading_execution {
+    id: string;
+    account_id?: string;
+    pane_index?: number;
+    price_scale?: trading_price_scale;
+    side: order_side;
+    kind: "entry" | "partial_fill" | "exit";
+    time: number;
+    price: number;
+    quantity: number;
+    order_id?: string;
+    position_id?: string;
+    /**
+     * Mark drawn outside the bar that contains `time`: buys below its rendered low, sells above
+     * its rendered high (the plotted line for line-type series). Fills of one side on one bar
+     * share one mark (an arrow with stacked chevrons when there are several) that clears a line
+     * series across its width; hovering it marks each fill's exact price. Defaults to `"arrow"`.
+     */
+    marker_shape?: "circle" | "arrow" | "triangle";
+    size_by_quantity?: boolean;
+}
+export interface trading_round_trip {
+    id: string;
+    entry_execution_id: string;
+    exit_execution_id: string;
+    result_label: string;
+    outcome: "profit" | "loss" | "flat";
+}
+export interface host_event_marker {
+    id: string;
+    time: number;
+    importance?: number;
+    label: string;
+    icon?: string;
+}
+export interface host_time_window {
+    id: string;
+    start_time: number;
+    end_time: number;
+    label?: string;
+}
+export interface host_overlay_snapshot {
+    events?: host_event_marker[];
+    windows?: host_time_window[];
+}
+export interface host_event_hit {
+    id: string;
+    window: boolean;
+}
+export interface crosshair_sync_position {
+    time: number;
+    price: number;
+    pane_index: number;
+    /** The source chart's {@link chart_api.set_sync_price_key}; absent when it has none. */
+    price_key?: string;
+}
+export type general_axis_sync_domain = {
+    type: "numeric";
+    from: number;
+    to: number;
+} | {
+    type: "temporal";
+    from: number;
+    to: number;
+} | {
+    type: "category";
+    from: string;
+    to: string;
+};
+export type general_axis_sync_value = {
+    type: "numeric";
+    value: number;
+} | {
+    type: "temporal";
+    value: number;
+} | {
+    type: "category";
+    value: string;
+};
+export interface general_crosshair_sync_position {
+    pane_index: number;
+    x_axis_id: string;
+    y_axis_id: string;
+    x: general_axis_sync_value;
+    y: general_axis_sync_value;
+}
+export type chart_sync_event = {
+    source: string;
+    revision: number;
+    kind: "crosshair";
+    position: crosshair_sync_position;
+} | {
+    source: string;
+    revision: number;
+    kind: "clear_crosshair";
+} | {
+    source: string;
+    revision: number;
+    kind: "visible_time_range";
+    range: {
+        from: number;
+        to: number;
+    };
+} | {
+    source: string;
+    revision: number;
+    kind: "general_axis_view";
+    axis_id: string;
+    domain: general_axis_sync_domain | null;
+} | {
+    source: string;
+    revision: number;
+    kind: "general_crosshair";
+    position: general_crosshair_sync_position;
+};
+export interface trading_snapshot {
+    instrument?: instrument_metadata;
+    positions?: trading_position[];
+    orders?: working_order[];
+    executions?: trading_execution[];
+    round_trips?: trading_round_trip[];
+}
+export interface trading_hit {
+    object_type: "position" | "order" | "execution";
+    id: string;
+    kind: "position_line" | "order_line" | "take_profit_button" | "stop_loss_button" | "cancel_button" | "execution_marker" | "annotation";
+    distance: number;
+    annotation_id?: string;
+}
+export type trading_intent_action = "place_bracket_order" | "modify_order" | "cancel_order" | "create_stop_loss" | "create_take_profit" | "close_position";
+export interface trading_intent {
+    sequence: number;
+    action: trading_intent_action;
+    account_id?: string;
+    drawing_id?: number;
+    order_id?: string;
+    position_id?: string;
+    pane_index?: number;
+    price_scale?: trading_price_scale;
+    side?: order_side;
+    kind?: order_kind;
+    role?: order_role;
+    price?: number;
+    price_tick_index?: number;
+    stop_price?: number;
+    take_profit_price?: number;
+    stop_loss_price?: number;
+    quantity?: number;
+    bracket_id?: string;
+    oco_group_id?: string;
+    base_revision: number;
+}
+export interface trading_preview {
+    source: "order" | "stop_loss" | "take_profit" | "order_stop_loss" | "order_take_profit";
+    order_id?: string;
+    position_id?: string;
+    pane_index: number;
+    price_scale: trading_price_scale;
+    price: number;
+    quantity: number;
+    side: order_side;
+    role: order_role;
+    base_revision: number;
+}
+export type trading_intent_handler = (intent: trading_intent) => void;
+export interface trading_style_options {
+    position: string;
+    working_order: string;
+    buy: string;
+    sell: string;
+    /** Marker and line color of a resting buy or sell limit (and stop-limit). Defaults follow
+     * the painted surface's `--buy-subtle` / `--sell-subtle`; text and hollow axis tags
+     * keep the strong `buy` / `sell` color. */
+    buy_limit: string;
+    sell_limit: string;
+    profit: string;
+    risk: string;
+    take_profit: string;
+    stop_loss: string;
+    pending: string;
+    rejected: string;
+    control: string;
+    label: string;
+    /** Execution arrow colors; default blue buy and red sell. */
+    execution_buy: string;
+    execution_sell: string;
+    /** Whether order and position lines run from the pane's left edge; default `true`. When
+     * `false`, each line starts at its leftmost control (the TP/SL buttons or the marker). */
+    extend_lines_left: boolean;
+}
+/** First-party, broker-neutral runtime trading state. Live objects are never chart-persisted. */
+export interface trading_api {
+    apply_snapshot(snapshot: trading_snapshot): void;
+    state(): Required<trading_snapshot>;
+    set_visible_account(account_id: string | null): void;
+    set_host_overlay(overlay: host_overlay_snapshot): void;
+    host_overlay(): host_overlay_snapshot;
+    host_event_hit_at(x: number, y: number): host_event_hit | null;
+    update_position(position: trading_position): void;
+    remove_position(id: string): boolean;
+    update_order(order: working_order): void;
+    remove_order(id: string): boolean;
+    apply_execution(execution: trading_execution): void;
+    remove_execution(id: string): boolean;
+    set_instrument(instrument: instrument_metadata): void;
+    apply_options(options: Partial<trading_style_options>): void;
+    /** Emit one atomic host-authoritative bracket request from a complete Long/Short Position
+     * drawing. The host supplies quantity, broker submission, IDs, and the resulting snapshot. */
+    place_bracket_order(drawing_id: number, quantity: number): void;
+    hit_at(x: number, y: number): trading_hit | null;
+    /** The live drag preview, or `null` when no drag is in flight. A released change is already
+     * applied to the chart's own state, so nothing lingers here waiting on the host. */
+    preview(): trading_preview | null;
+    take_intents(): trading_intent[];
+    /** Answer an emitted intent. Accepting releases the rollback the chart kept; rejecting undoes
+     * the change — restoring a closed order or position, or moving a dragged line back. */
+    resolve_intent(sequence: number, accepted: boolean): boolean;
+    subscribe_intents(handler: trading_intent_handler): void;
+    unsubscribe_intents(handler: trading_intent_handler): void;
+}
+/** Immutable diagnostic snapshot for backend selection and fallback. */
+export interface backend_status {
+    readonly requested_backend: "auto" | "canvas2d";
+    readonly active_backend: "webgpu" | "canvas2d";
+    readonly stage: "backend_selection" | "adapter_acquisition" | "device_acquisition" | "surface_configuration" | "initialization" | "ready" | "runtime";
+    readonly reason: "canvas2d_requested" | "adapter_unavailable" | "device_unavailable" | "surface_unavailable" | "webgpu_initialization_failed" | "webgpu_ready" | "device_lost" | "surface_acquisition_failed";
+    /** Browser secure-context state at chart construction, or `null` when the host cannot expose it. */
+    readonly secure_context: boolean | null;
+    /** Whether `navigator.gpu` was exposed at construction, without making another adapter request. */
+    readonly navigator_gpu: boolean | null;
+    /** Unstable platform detail for debugging. Branch on `stage` and `reason`, not this text. */
+    readonly detail?: string;
+}
+/** Visible-range volume profile. OHLCV volume is spread uniformly across each bar's
+ * low/high range; these bins estimate activity and are not exact trade-at-price data. */
+export interface volume_profile_indicator_options {
+    /** Price rows, 1-512. Default 48. */
+    rows: number;
+    /** Contiguous volume coverage around POC, >0-100. Default 70. */
+    value_area_percent: number;
+    /** Width as a percentage of the pane, >0-50. Default 25. */
+    width_percent: number;
+    visible: boolean;
+    show_poc: boolean;
+    show_value_area: boolean;
+    up_color: string;
+    down_color: string;
+    value_area_up_color: string;
+    value_area_down_color: string;
+    poc_color: string;
+}
+export interface volume_profile_indicator_snapshot {
+    rows: readonly {
+        low: number;
+        high: number;
+        volume: number;
+        up_volume: number;
+        down_volume: number;
+    }[];
+    total_volume: number;
+    bar_count: number;
+    poc: number | null;
+    value_area_low: number | null;
+    value_area_high: number | null;
+    calculation_revision: number;
+    error: string | null;
+    method: "ohlcv_uniform";
+}
+export interface volume_profile_indicator_api {
+    readonly id: number;
+    options(): volume_profile_indicator_options;
+    apply_options(options: Partial<volume_profile_indicator_options>): void;
+    snapshot(): volume_profile_indicator_snapshot;
+    /** Whether the profile is the chart's selection (click-to-select, cleared by Escape). */
+    selected(): boolean;
+    /** Select the profile, or clear it with `false`; selecting clears other chart selections. */
+    select(selected?: boolean): void;
+    remove(): void;
+}
+/** One bar of host-supplied options flow. `time` is UTC seconds on the price series' bar grid;
+ * volumes are non-negative and `null` leaves that side of the bar empty. */
+export interface options_volume_row {
+    time: number;
+    calls: number | null;
+    puts: number | null;
+}
+/** Engine-owned options-volume study: one compact separate pane where call volume rises above
+ * zero in the bullish color and put volume falls below it in the bearish color, following the
+ * theme. Selecting either column set selects the study; deleting it removes both and the pane. */
+export interface options_volume_api {
+    readonly id: number;
+    /** Replace every bar. */
+    set_data(rows: readonly options_volume_row[]): void;
+    /** Append a bar or replace the newest one; older bars are rejected. */
+    update(row: {
+        time: number;
+        calls: number;
+        puts: number;
+    }): void;
+    /** The call and put column series, for styling or reading values back. */
+    series(): readonly [series_api, series_api];
+    visible(): boolean;
+    set_visible(visible: boolean): void;
+    remove(): void;
+}
+/** Which orders become bubbles. `auto` keeps orders above a percentile of the recently completed
+ * orders (weak 95th, medium 98th, strong 99.5th); `fixed` keeps orders of at least the volume. */
+export type big_trades_filter = {
+    mode: "auto";
+    intensity: "weak" | "medium" | "strong";
+} | {
+    mode: "fixed";
+    minimum_volume: number;
+};
+/** Large aggressive orders rebuilt from consecutive same-aggressor prints, then filtered. */
+export interface big_trades_options {
+    /** Default `{ mode: "auto", intensity: "medium" }`. */
+    filter: big_trades_filter;
+    /** Largest gap between prints of one order, 0-1,000,000 µs. Default 1000. */
+    grouping_window_micros: number;
+    /** Bubble diameter range. Default `medium`. */
+    size: "small" | "medium" | "large";
+    /** Draw the order volume inside bubbles large enough to hold it. Default true. */
+    show_volume: boolean;
+    visible: boolean;
+    buy_color: string;
+    sell_color: string;
+    buy_border_color: string;
+    sell_border_color: string;
+    /** `null` follows the chart layout text color. */
+    text_color: string | null;
+}
+export interface big_trade {
+    side: "buy" | "sell";
+    volume: number;
+    prints: number;
+    /** Volume-weighted fill price; the bubble is centred here. */
+    vwap: number;
+    low: number;
+    high: number;
+    start_timestamp_micros: number;
+    end_timestamp_micros: number;
+    /** UTC seconds of the bar the order opened in, or its logical index on non-time bars. */
+    bar_time: number;
+}
+export interface big_trades_snapshot {
+    /** The filter applied, or `null` while the automatic filter is still sampling. */
+    threshold: number | null;
+    /** Qualifying orders oldest first; the newest 4096 are kept. */
+    bubbles: readonly big_trade[];
+}
+export interface big_trades_api {
+    readonly id: number;
+    options(): big_trades_options;
+    apply_options(options: Partial<big_trades_options>): void;
+    snapshot(): big_trades_snapshot;
+    remove(): void;
+}
+/** Tape-derived footprint auction event rules; all volumes use the stream's native units. */
+export interface auction_marker_options {
+    min_side_volume: number;
+    exhaustion_max_volume: number;
+    exhaustion_levels: number;
+    absorption_min_volume: number;
+    absorption_ratio: number;
+    extreme_levels: number;
+    min_rejection_rows: number;
+    extend_until_revisited: boolean;
+    include_forming_bar: boolean;
+    visible: boolean;
+}
+export interface auction_mark {
+    /** UTC seconds for time bars; logical row key for non-time bars. */
+    bar_time: number;
+    kind: "unfinished_auction" | "exhaustion" | "absorption";
+    side: "high" | "low";
+    price: number;
+    volume: number;
+}
+export interface auction_markers_api {
+    readonly id: number;
+    options(): auction_marker_options;
+    apply_options(options: Partial<auction_marker_options>): void;
+    /** Tape-derived marks in engine order. */
+    snapshot(): readonly auction_mark[];
+    remove(): void;
+}
+/** The chart. Create with {@link create_chart}. */
+export interface chart_api {
+    /** Format a time with the chart's time zone, date pattern, and crosshair time formatter. */
+    format_time_label(value: time): string;
+    /** Camel-case aliases; both naming styles operate on this same chart handle. */
+    addSeries: chart_api["add_series"];
+    removeSeries: chart_api["remove_series"];
+    addPane: chart_api["add_pane"];
+    addAxis: chart_api["add_axis"];
+    removeAxis: chart_api["remove_axis"];
+    applyOptions: chart_api["apply_options"];
+    timeScale: chart_api["time_scale"];
+    priceScale: chart_api["price_scale"];
+    takeScreenshot: chart_api["take_screenshot"];
+    exportState: chart_api["export_state"];
+    importState: chart_api["import_state"];
+    /** Active pane backend: `webgpu` when available, otherwise the shared `canvas2d` fallback. */
+    backend(): "webgpu" | "canvas2d";
+    /** Structured backend selection/fallback diagnostics for this chart. */
+    backend_status(): Readonly<backend_status>;
+    /**
+     * Render telemetry for the last frame — the surface for holding a frame-time budget and
+     * detecting regressions. Cheap enough to poll every frame: the returned object is freshly
+     * built but the underlying transfer reuses one scratch array per chart, and the engine's
+     * collection is a fixed-size record rather than a retained history.
+     *
+     * The first call arms WebGPU GPU-time collection; see {@link frame_stats.gpu_ms}.
+     */
+    frame_stats(): frame_stats;
+    /** The chart-local first-party trading domain. Broker state remains host-authoritative. */
+    trading(): trading_api;
+    /** Host-authoritative price-alert indicators. */
+    alerts(): alert_api;
+    /** Show or hide the neutral crosshair action button. */
+    set_crosshair_action_button_visible(visible: boolean): void;
+    /** Subscribe to requests for a host-owned action menu at the crosshair price. */
+    subscribe_crosshair_action(handler: crosshair_action_request_handler): void;
+    unsubscribe_crosshair_action(handler: crosshair_action_request_handler): void;
+    /** The singleton accessibility controller installed for this chart. */
+    accessibility(): accessibility_handle;
+    /**
+     * Return every live series as one engine-owned snapshot and one WASM transfer. With no argument,
+     * each series resolves its own latest non-whitespace row. With an index, lookup is exact: gaps
+     * and whitespace remain present with null data and never borrow a neighboring value.
+     */
+    value_snapshot(logical_index?: number): chart_value_snapshot[];
+    /** Set or clear the shared UTC-second anchor used by percentage/indexed comparison overlays. */
+    set_comparison_anchor(time: number | null): boolean;
+    /** Current shared comparison anchor, or `null` when unset. */
+    comparison_anchor(): number | null;
+    /** Engine-owned per-series values resolved against the shared comparison anchor. */
+    comparison_legend_snapshot(): comparison_legend_entry[];
+    /** Create or reuse a chart-level canonical trade stream for tape-derived studies. */
+    add_trade_stream(key: string, options?: Partial<footprint_series_options>): number;
+    /** Create or reuse the canonical bounded level-two book for one host instrument. */
+    add_depth_stream(key: string, options?: Partial<depth_options>): number;
+    depth_stream_id(key: string): number | null;
+    remove_depth_stream(stream_id: number): boolean;
+    /** Atomically replace a depth book with an exact sequenced snapshot. */
+    set_depth_snapshot_typed(stream_id: number, columns: depth_snapshot_columns): void;
+    /** Apply an atomic ordered batch; a sequence gap fences mutation and requests host resync. */
+    update_depth_typed(stream_id: number, columns: depth_update_columns): void;
+    depth_ladder(stream_id: number, levels_per_side: number, minimum_size?: number, max_distance_ticks?: number): readonly depth_ladder_row[] | null;
+    depth_study(stream_id: number, levels_per_side: number, minimum_size?: number, max_distance_ticks?: number): depth_study_snapshot | null;
+    add_depth_heatmap(stream_id: number, options: Partial<depth_heatmap_options> & Pick<depth_heatmap_options, "price_min" | "price_max">): number;
+    remove_depth_heatmap(id: number): boolean;
+    set_depth_events_typed(stream_id: number, columns: depth_event_columns): void;
+    add_depth_event_layer(stream_id: number, options?: Partial<depth_event_layer_options>): number;
+    remove_depth_event_layer(id: number): boolean;
+    add_depth_profile(stream_id: number, options?: Partial<depth_profile_options>): number;
+    set_depth_profile_options(id: number, options: Partial<depth_profile_options>): boolean;
+    remove_depth_profile(id: number): boolean;
+    /** Selected depth profile id, or `null`. Clicking a profile bar selects it; Escape, selecting another object, or removing it clears it. */
+    selected_depth_profile(): number | null;
+    /** Select a depth profile, or clear a selected one with `null`. Returns `false` for an unknown id. */
+    select_depth_profile(id: number | null): boolean;
+    time_and_sales(stream_id: number, options?: Partial<time_and_sales_options>): readonly time_and_sales_row[] | null;
+    replay_clock_micros(): number | null;
+    set_replay_clock_micros(clock_micros: number | null): replay_clock_stats;
+    /**
+     * Bar replay. The engine owns the trim cursor, selection, stepping, and playback cadence; a
+     * host toolbar calls these commands and renders {@link replay_state}. While replay is paused or
+     * playing, Shift+Right steps forward, Shift+Left steps back, and Shift+Down toggles playback.
+     */
+    replay_state(): replay_state;
+    /** Arm the trim cursor. During replay this re-selects the start bar; Escape returns to the paused replay. */
+    replay_select_start(): replay_state;
+    replay_cancel_selection(): replay_state;
+    /** Trim at the bar containing `time_micros` and pause there. */
+    replay_select_time(time_micros: number): replay_state;
+    replay_play(): replay_state;
+    replay_pause(): replay_state;
+    replay_toggle_play(): replay_state;
+    replay_step_forward(): replay_state;
+    /** Hide the newest bar, always keeping at least one. */
+    replay_step_back(): replay_state;
+    /** Playback steps per second, 0.1 to 10. */
+    set_replay_speed(steps_per_second: number): replay_state;
+    set_replay_step(step: replay_step): replay_state;
+    /** Leave replay showing all data, live updates included. */
+    replay_jump_to_realtime(): replay_state;
+    /** Leave replay and restore the replay clock the host had set before it began. */
+    replay_exit(): replay_state;
+    /** Called after every replay change, whether from a command, a click, a key, or playback. */
+    subscribe_replay_change(handler: replay_change_handler): void;
+    unsubscribe_replay_change(handler: replay_change_handler): void;
+    /** Configure one candlestick/bar series as the chart's exclusive non-time price transform. */
+    configure_synthetic_bar_series(series: series_api | number, options: synthetic_bar_options): void;
+    /** Replace the transform's canonical OHLC source through the columnar boundary. */
+    set_synthetic_bar_source_typed(series: series_api | number, columns: ohlc_columns): void;
+    /** Object-row convenience wrapper over {@link set_synthetic_bar_source_typed}. */
+    set_synthetic_bar_source(series: series_api | number, data: readonly series_data[]): void;
+    /** Append or replace the current canonical source bar, then refresh the synthetic sequence. */
+    update_synthetic_bar_source(series: series_api | number, data: ohlc_data): void;
+    /** The displayed derived bar at a logical index, or `null` when the series has no transform
+     *  or the index is outside the projection. */
+    synthetic_bar_at(series: series_api | number, logical: number): synthetic_bar | null;
+    trade_stream_id(key: string): number | null;
+    trade_stream_revision(stream_id: number): number | null;
+    trade_stream_stats(stream_id: number): trade_stream_stats | null;
+    trade_stream_replay_clock_micros(stream_id: number): number | null;
+    set_trade_stream_replay_clock_micros(stream_id: number, clock_micros: number | null): replay_seek_stats;
+    set_trade_stream_trades(stream_id: number, trades: readonly footprint_trade[]): void;
+    set_trade_stream_trades_typed(stream_id: number, columns: footprint_trade_columns): void;
+    update_trade_stream_trades(stream_id: number, trades: readonly footprint_trade[]): "tip" | "historical";
+    update_trade_stream_trades_typed(stream_id: number, columns: footprint_trade_columns): "tip" | "historical";
+    bind_footprint_series_to_stream(series: footprint_series_api | number, stream_id: number): void;
+    /** Present one canonical trade stream as ordinary candlesticks or OHLC bars. */
+    bind_trade_bar_series_to_stream(series: series_api | number, stream_id: number): void;
+    /** CVD as one candle per bar spanning its open, running intrabar extremes and close (default `"candles"`), or as a line through each bar's close. */
+    add_cvd_series(stream_id: number, pane?: number, reset?: "session" | "continuous" | "anchored", anchor_timestamp_micros?: number, style?: "line" | "candles"): series_api;
+    add_delta_series(stream_id: number, pane?: number): series_api;
+    /** Draw a trade stream's large aggressive orders as volume bubbles over a price series. */
+    add_big_trades(series: series_api | number, stream_id: number, options?: Partial<big_trades_options>): big_trades_api;
+    /** Present tape-derived auction markers on a price series. */
+    add_auction_markers(series: series_api | number, stream_id: number, options?: Partial<auction_marker_options>): auction_markers_api;
+    /** Derive OHLCV into a host-created target for higher-timeframe overlays and study inputs. */
+    configure_resampled_series(source: series_api, target: series_api, options: resample_options, volume_source?: series_api | null, volume_target?: series_api | null): void;
+    /** Replace runtime-only UTC session spans atomically; an empty list clears them. */
+    set_study_calendar(boundaries: readonly resample_boundary[]): void;
+    clear_study_calendar(): void;
+    study_annotations(binding: series_api): study_annotations;
+    /** Read the engine's current aggregate rows for a derived target. */
+    resampled_bars(target: series_api): readonly resampled_bar[] | null;
+    volume_profile_snapshot(request: profile_request): profile_snapshot | null;
+    periodic_volume_profiles(source: profile_source, boundaries: readonly resample_boundary[], tick_size: number, row_count: number, value_area_percent: number): readonly profile_snapshot[] | null;
+    periodic_naked_profile_levels(source: profile_source, boundaries: readonly resample_boundary[], tick_size: number, row_count: number, value_area_percent: number): readonly naked_profile_level[] | null;
+    tpo_profiles(request: tpo_request): readonly tpo_snapshot[] | null;
+    /** Render host-boundary volume profiles on an existing price series' pane. */
+    add_periodic_profile_presentation(anchor: series_api, request: periodic_profile_presentation_request, options?: Partial<periodic_profile_presentation_options>): number;
+    remove_periodic_profile_presentation(id: number): boolean;
+    anchored_vwap(source: profile_source, start_timestamp_micros: number, end_timestamp_micros: number, band_multiplier: number): readonly anchored_vwap_point[] | null;
+    /**
+     * Register the candle volume series that Fixed Range and Anchored Volume Profile drawings on
+     * `price_series` aggregate; `null` clears it. An order-flow tape installed on the series takes
+     * precedence, and an explicit `configure_profile_drawing` source overrides both.
+     */
+    set_series_volume_source(price_series: series_api, volume_series: series_api | null): void;
+    configure_profile_drawing(drawing: drawing_api, options: profile_drawing_options): void;
+    profile_drawing_snapshot(drawing: drawing_api): profile_drawing_snapshot | null;
+    add_series(kind: "footprint", options?: Partial<any_series_options> & Partial<footprint_series_options>): footprint_series_api;
+    /** A market profile series: OHLC bars drawn as one TPO profile per session. */
+    add_series(kind: "tpo", options?: Partial<any_series_options> & Partial<tpo_series_options>): tpo_series_api;
+    add_series(kind: general_series_kind, options: general_series_options): general_series_api;
+    add_series(kind: series_kind, options?: Partial<any_series_options>): series_api;
+    /**
+     * Add a custom series (plugin platform Phase C-c; reference `IChartApi.addCustomSeries`): a
+     * user-defined series type rendered by the pane view's `render(ctx)` through backend-neutral
+     * draw commands, so its output is pixel-identical on the WebGPU and Canvas2D backends. The
+     * engine owns the time mapping and autoscale (via the view's `price_value_builder`); the
+     * returned handle's `set_data`/`update`/`data` work on the raw plugin items. The view's
+     * `default_options` merge under the caller's `options` (reference `createCustomSeriesDefinition`);
+     * the series options that make sense for a plugin-drawn series apply (`visible`,
+     * `price_scale_id`/overlay, `pane`/`move_to_pane`, `last_value_visible`, the `price_line_*`
+     * family, `price_format`) and unsupported style keys are ignored. Removing the series fires
+     * the view's `destroy` hook.
+     */
+    /** @experimental Custom-series lifecycle is supported but its exact type surface is not frozen. */
+    add_custom_series(pane_view: custom_series_pane_view, options?: Partial<series_options>): series_api;
+    /**
+     * Remove a series (and any indicators derived from it). No-op for an already-removed or
+     * foreign handle. The primary series (the first one created, engine id 0) may also be removed;
+     * the engine tombstones it safely.
+     */
+    remove_series(series: series_api | general_series_api): void;
+    /** General series in stable paint, legend, hit-test, and persistence order (bottom first). */
+    general_series_order(pane?: number): general_series_api[];
+    /** Atomically reorder every general series in the selected pane, or globally when omitted. */
+    set_general_series_order(ordered: general_series_api[], pane?: number): boolean;
+    /**
+     * The chart's series in stable saved (z-)order (bottom first), as live handles. A series
+     * whose handle the package no longer tracks is omitted. Cf. the reference's per-series
+     * `ISeriesApi.seriesOrder`. The frame derives pane-local paint from it — default idle
+     * indicators below idle drawings below ordinary price with active hover/selection/drag
+     * promoted on top (indicator outputs move as one group) — without rewriting it; hit-test
+     * ties break on it so promotion cannot oscillate hover.
+     */
+    series_order(): series_api[];
+    /**
+     * Override default series grouping with an explicit idle order (bottom first; cf. the
+     * reference's per-series `ISeriesApi.setSeriesOrder`, elevated here to a whole-chart call).
+     * Idle drawings stay below price series; active hover/selection/drag promotion still applies
+     * above the explicit idle order with indicator groups moving together. Returns `false`
+     * without changing anything when the engine rejects the order.
+     */
+    set_series_order(ordered: series_api[]): boolean;
+    /** Add a Rust-native simple moving-average line derived from an existing series. */
+    add_sma(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Register a synchronous chart-local study implementation. Worker charts do not support callbacks. */
+    register_custom_study<State>(definition: custom_study_definition<State>): void;
+    add_custom_study(type: string, source: series_api, params?: Record<string, unknown>, options?: custom_study_binding_options): series_api[];
+    subscribe_custom_study_fault(callback: (event: custom_study_fault_event) => void): () => void;
+    add_aroon(source: series_api, period: number, options?: Partial<series_options>): [series_api, series_api];
+    /** Confirmed pivot levels and marker snapshots; levels begin at confirmation, never at the pivot. */
+    add_swing_points(source: series_api, left?: number, right?: number, options?: Partial<series_options>): [series_api, series_api];
+    /** Intraday running session high/low. Host policy uses set_study_calendar boundaries. */
+    add_session_levels(source: series_api, calendar?: study_calendar_policy, options?: Partial<series_options>): [series_api, series_api];
+    /** Completed previous day/week/month high/low/close, available only in the next period. */
+    add_previous_period_levels(source: series_api, period?: previous_period, calendar?: study_calendar_policy, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Running opening high/low/mid, fixed after duration_seconds from the session start. */
+    add_opening_range(source: series_api, duration_seconds: number, calendar?: study_calendar_policy, options?: Partial<series_options>): [series_api, series_api, series_api];
+    add_awesome_oscillator(source: series_api, options?: Partial<series_options>): series_api;
+    add_dpo(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_chande_momentum(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_bollinger_metrics(source: series_api, period: number, deviation: number, options?: Partial<series_options>): [series_api, series_api];
+    add_envelopes(source: series_api, period: number, percent: number, exponential?: boolean, options?: Partial<series_options>): [series_api, series_api, series_api];
+    add_alma(source: series_api, period: number, offset?: number, sigma?: number, options?: Partial<series_options>): series_api;
+    /** Add an SMA using an explicit OHLC/aggregate input from the source series. */
+    add_sma_with_source(source: series_api, input: indicator_input_source, period: number, options?: Partial<series_options>): series_api;
+    /** Add a Rust-native exponential moving-average line derived from an existing series. */
+    add_ema(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_dema(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_tema(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_smma(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_rma(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_hma(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add upper, middle, and lower Rust-native Bollinger-band lines (with the industry-standard
+     *  background fill between the bands). */
+    add_bollinger(source: series_api, period: number, deviation?: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Add Bollinger bands using an explicit OHLC/aggregate input from the source series. */
+    add_bollinger_with_source(source: series_api, input: indicator_input_source, period: number, deviation?: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Add a Rust-native Wilder RSI line in its own oscillator pane (dotted 30/70 band lines and
+     *  the translucent channel strip between them). */
+    add_rsi(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add RSI using an explicit OHLC/aggregate input from the source series. */
+    add_rsi_with_source(source: series_api, input: indicator_input_source, period: number, options?: Partial<series_options>): series_api;
+    /** Change an existing indicator binding's scalar input while retaining its output handle. */
+    set_indicator_input_source(indicator: series_api, input: indicator_input_source): boolean;
+    /** Return the bounded typed editor schema for a built-in indicator kind. */
+    indicator_schema(kind: indicator_kind, period?: number, deviation?: number): indicator_schema;
+    /** Add MACD line, signal line, and histogram in their own oscillator pane; the histogram's
+     *  per-bar color follows four conventional states (strong/weak × above/below zero). */
+    add_macd(source: series_api, fast: number, slow: number, signal: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Add Stochastic %K and %D lines in their own oscillator pane (dotted 20/80 band lines and
+     *  the translucent channel strip between them). */
+    add_stochastic(source: series_api, k_period: number, d_period: number, options?: Partial<series_options>): [series_api, series_api];
+    /** Add a Rust-native Wilder ATR line in its own oscillator pane. */
+    add_atr(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add a session-anchored (UTC-day reset) VWAP line on the source's pane. `volume_source`
+     *  supplies per-bar volume (e.g. the volume histogram series); `null`/omitted = unit weights. */
+    add_vwap(source: series_api, volume_source?: series_api | null, options?: Partial<series_options>): series_api;
+    add_obv(source: series_api, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_accumulation_distribution(source: series_api, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_price_volume_trend(source: series_api, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_chaikin_oscillator(source: series_api, fast: number, slow: number, volume_source: series_api, options?: Partial<series_options>): series_api;
+    /** Klinger line and signal. Pass `undefined` for default periods (34/55/13); volume is required. */
+    add_klinger(source: series_api, fast: number | undefined, slow: number | undefined, signal: number | undefined, volume_source: series_api, options?: Partial<series_options>): [series_api, series_api];
+    add_kama(source: series_api, period?: number, fast?: number, slow?: number, options?: Partial<series_options>): series_api;
+    add_mcginley(source: series_api, period?: number, options?: Partial<series_options>): series_api;
+    /** Regression curve, upper and lower residual-deviation bands. */
+    add_linear_regression(source: series_api, period?: number, deviation?: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Choppiness Index (0–100), in a separate oscillator pane. */
+    add_choppiness(source: series_api, period?: number, options?: Partial<series_options>): series_api;
+    /** Price-pane bands in upper, close-basis, lower order using Wilder ATR. */
+    add_atr_bands(source: series_api, period?: number, multiplier?: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    add_relative_volume(source: series_api, period: number, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_volume_oscillator(source: series_api, fast: number, slow: number, signal: number, volume_source: series_api, options?: Partial<series_options>): [series_api, series_api, series_api];
+    add_elder_force(source: series_api, period: number, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_ease_of_movement(source: series_api, period: number, volume_source: series_api, divisor?: number, options?: Partial<series_options>): series_api;
+    add_historical_volatility(source: series_api, period: number, annualization?: number, options?: Partial<series_options>): series_api;
+    add_trix(source: series_api, period: number, signal?: number, options?: Partial<series_options>): [series_api, series_api];
+    add_kst(source: series_api, roc?: kst_periods, smoothing?: kst_periods, signal?: number, options?: Partial<series_options>): [series_api, series_api];
+    add_tsi(source: series_api, long?: number, short?: number, signal?: number, options?: Partial<series_options>): [series_api, series_api];
+    add_mass_index(source: series_api, ema_period?: number, sum_period?: number, options?: Partial<series_options>): series_api;
+    add_vortex(source: series_api, period?: number, options?: Partial<series_options>): [series_api, series_api];
+    add_coppock_curve(source: series_api, long_period?: number, short_period?: number, smoothing?: number, options?: Partial<series_options>): series_api;
+    add_fisher_transform(source: series_api, period?: number, options?: Partial<series_options>): [series_api, series_api];
+    add_ultimate_oscillator(source: series_api, short_period?: number, medium_period?: number, long_period?: number, options?: Partial<series_options>): series_api;
+    add_cmf(source: series_api, period: number, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_mfi(source: series_api, period: number, volume_source: series_api, options?: Partial<series_options>): series_api;
+    add_volume(source: series_api, period: number, volume_source: series_api, options?: Partial<series_options>): [series_api, series_api];
+    /** Add VWAP basis, standard-deviation bands, and percentage bands with an explicit reset. */
+    add_vwap_bands(source: series_api, reset?: vwap_reset, standard_deviation?: number, percent?: number, volume_source?: series_api | null, options?: Partial<series_options>): [series_api, series_api, series_api, series_api, series_api];
+    /** Create a Rust-calculated visible-range volume profile. Source must initially be OHLC;
+     * volume_source must be a scalar series on this chart. Missing timestamps, whitespace,
+     * nonpositive volume, and invalid price intervals contribute nothing. Source removal
+     * removes the indicator. Distribution handles are runtime-only, not V1 scalar bindings. */
+    add_volume_profile(source: series_api, volume_source: series_api, options?: Partial<volume_profile_indicator_options>): volume_profile_indicator_api;
+    /** Add an options-volume study (calls above zero, puts below) in its own compact pane, fed
+     * with host-supplied per-bar call and put volume. */
+    add_options_volume(rows?: readonly options_volume_row[]): options_volume_api;
+    /** Add a Rust-native weighted moving-average line (linear weights, recent heaviest). */
+    add_wma(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add a volume-weighted moving average. `volume_source` is optional and defaults to unit weights. */
+    add_vwma(source: series_api, period: number, volume_source?: series_api | null, options?: Partial<series_options>): series_api;
+    add_standard_deviation(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add a Commodity Channel Index line in its own oscillator pane with ±100 bands. */
+    add_cci(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add Williams %R in its own oscillator pane with conventional -80/-20 bands. */
+    add_williams_r(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add Stochastic RSI in its own oscillator pane with conventional 20/80 bands. */
+    add_stochastic_rsi(source: series_api, rsi_period: number, stochastic_period: number, options?: Partial<series_options>): series_api;
+    /** Add Momentum in its own oscillator pane. */
+    add_momentum(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    /** Add Rate of Change (percentage) in its own oscillator pane. */
+    add_roc(source: series_api, period: number, options?: Partial<series_options>): series_api;
+    add_donchian(source: series_api, period: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Add previous-session pivot, R1, S1, R2, and S2 levels. */
+    add_pivot_points(source: series_api, variant?: pivot_kind, options?: Partial<series_options>): [series_api, series_api, series_api, series_api, series_api];
+    /** Add a ZigZag line using a minimum reversal percentage. */
+    add_zigzag(source: series_api, deviation_percent?: number, options?: Partial<series_options>): series_api;
+    /** Add Keltner channel upper, middle, and lower lines using an EMA center and Wilder ATR envelope. */
+    add_keltner(source: series_api, period: number, multiplier?: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Add +DI, -DI, and ADX lines in an oscillator pane. */
+    add_adx_dmi(source: series_api, period: number, options?: Partial<series_options>): [series_api, series_api, series_api];
+    /** Add a conventional Parabolic SAR overlay (0.02 acceleration step, 0.20 cap). */
+    add_parabolic_sar(source: series_api, options?: Partial<series_options>): series_api;
+    /** Add a SuperTrend line using an ATR period and multiplier. */
+    add_supertrend(source: series_api, period: number, multiplier?: number, options?: Partial<series_options>): series_api;
+    add_ichimoku(source: series_api, options?: Partial<series_options>): [series_api, series_api, series_api, series_api, series_api];
+    apply_options(options: deep_partial<chart_options>): void;
+    options(): unknown;
+    time_scale(): time_scale_api;
+    price_scale(price_scale_id?: string, pane_index?: number): price_scale_api;
+    add_price_scale(options: price_scale_create_options, pane_index?: number): price_scale_api;
+    price_scales(pane_index?: number): price_scale_info[];
+    move_price_scale(id: string, side: "left" | "right", order: number, pane_index?: number): void;
+    remove_price_scale(id: string, pane_index?: number): void;
+    /** The stacked panes, top to bottom (roadmap Phase B1). At least one always exists. */
+    panes(): pane_api[];
+    /**
+     * Add a stacked pane (reference `IChartApi.addPane`) and return the handle for the new (last) index.
+     * `preserve_empty` keeps the pane alive while it has no series (reference `preserveEmptyPane`,
+     * default `false`).
+     */
+    add_pane(preserve_empty?: boolean): pane_api;
+    /** Add a pane bound to an explicit engine-owned horizontal domain. */
+    add_pane(options: general_pane_options): pane_api;
+    add_axis(options: general_axis_options): general_axis_api;
+    /** Add an axis-free layout family to a `layout` pane. */
+    add_layout_series(kind: layout_series_kind, options: layout_series_options, data: layout_input): layout_series_api;
+    /** Live layout series in frame order, including those restored from V2 state. */
+    layout_series(pane?: number): layout_series_api[];
+    /** Exact engine-owned mark hit in chart CSS pixels. */
+    layout_hit_test(pane: number, x: number, y: number): layout_hit | null;
+    /** Selection from the engine input controller; Escape or data replacement clears it. */
+    layout_selected_hit(): layout_hit | null;
+    /** Validate a complete proposed pane graph and packed data without mutating the chart. */
+    validate_general_pane_proposal(pane: number, axes: readonly (Omit<general_axis_options, "pane"> & {
+        pane?: number;
+    })[], series: readonly {
+        kind: general_series_kind;
+        options: Omit<general_series_options, "pane"> & {
+            pane?: number;
+        };
+        data: readonly (general_xy_row | bubble_row | range_area_row | error_bar_row | box_plot_row | waterfall_row | bullet_row | heatmap_grid_row | histogram_row)[];
+    }[], references: readonly general_reference_options[]): void;
+    /**
+     * Atomically reconcile one pane's complete ordered axes, series, data, references, and labels.
+     * Invalid input leaves the pane and all existing handles unchanged.
+     */
+    compose_general_pane(composition: general_pane_composition): general_pane_composition_result;
+    axis(id: string): general_axis_api | null;
+    axes(pane?: number): general_axis_api[];
+    remove_axis(id: string): boolean;
+    /** Add an engine-owned reference line, point, or region over general Cartesian axes. */
+    add_general_reference(options: general_reference_options): general_reference_api;
+    /** General references in stable insertion order, optionally filtered to one pane. */
+    general_references(pane?: number): general_reference_api[];
+    /**
+     * Engine-owned legend metadata in stable series order. Hidden series remain present with
+     * `visible: false`; pass a pane index to filter without changing chart state.
+     */
+    general_legend_snapshot(pane?: number): general_legend_snapshot;
+    /** Notify default legends when general series presentation or order changes. */
+    subscribe_general_legend_change(handler: () => void): void;
+    unsubscribe_general_legend_change(handler: () => void): void;
+    /**
+     * Engine-owned cross-series tooltip values for the exact horizontal datum of `series`/`row`.
+     * Hidden series and other panes are excluded. Returns `null` for a stale series/row.
+     */
+    general_shared_tooltip(series: number | general_series_api, row: number): general_shared_tooltip_snapshot | null;
+    /**
+     * Create/replace the transient engine-owned range brush for a Cartesian general axis.
+     * X coordinates are pane plot-local CSS pixels; Y coordinates are chart CSS pixels.
+     * The engine immediately converts them to semantic axis values, so resize/zoom reprojects the band.
+     */
+    set_general_brush(axis: string | general_axis_api, from_coordinate: number, to_coordinate: number): general_brush_snapshot;
+    /** Set a validated semantic range directly, without host pixel projection. */
+    set_general_brush_range(axis: string | general_axis_api, range: general_brush_range): general_brush_snapshot;
+    /** Arm one general axis for engine-owned mouse and single-touch range drag; omit to disarm. */
+    set_general_brush_input_axis(axis?: string | general_axis_api): void;
+    /** Select the whole resolved domain, including for keyboard-only brush use. */
+    select_full_general_brush(axis: string | general_axis_api): general_brush_snapshot;
+    /** Move one semantic endpoint by one transformed-percent step or one category. */
+    nudge_general_brush(endpoint: "start" | "end", direction: -1 | 1): general_brush_snapshot;
+    general_brush_snapshot(): general_brush_snapshot | null;
+    /** Opt-in duration for engine-owned general value transitions (0–5000 ms; zero disables). */
+    set_general_transition_duration(duration_ms: number): void;
+    /** Clear the active brush, optionally only when it belongs to `axis`. */
+    clear_general_brush(axis?: string | general_axis_api): void;
+    /** Notify browser controls after pointer/touch and programmatic brush changes. */
+    subscribe_general_brush_change(handler: () => void): void;
+    unsubscribe_general_brush_change(handler: () => void): void;
+    /**
+     * Engine-owned exact hit when `max_distance` is omitted, nearest hit otherwise.
+     * `x` is a CSS pixel offset from the pane plot's left edge (not the chart/container left);
+     * `y` is a CSS pixel offset from the chart/container top (not the pane or plot top).
+     * For a chart-relative pointer, subtract `pane.get_geometry().left` from its X only.
+     */
+    general_hit_test(pane: number, x: number, y: number, max_distance?: number): general_series_hit | null;
+    /** The mark selected by the most recent primary click/tap in a general-domain pane. */
+    general_selected_hit(): general_series_hit | null;
+    /**
+     * Remove the pane at `index` (reference `IChartApi.removePane`). Returns `false` without changing
+     * anything when the engine refuses (e.g. an out-of-range index or a non-empty last pane). An
+     * empty preserved last pane is retired and replaced by a fresh default pane so the chart retains
+     * one layout slot. Divergence: reference returns `void`. Live pane handles follow index shifts;
+     * a handle for the removed pane becomes explicitly invalid and can never retarget a replacement.
+     */
+    remove_pane(index: number): boolean;
+    /**
+     * Swap the panes at `first` and `second` (reference `IChartApi.swapPanes`). Returns `false` without
+     * changing anything when the engine rejects the swap. Divergence: reference returns `void`. Pane
+     * live handles follow their pane identities across the swap.
+     */
+    swap_panes(first: number, second: number): boolean;
+    /**
+     * Restore Aeris-owned chart and series styling to the canonical defaults for this chart's
+     * selected theme. This does not reset the view: data, panes, drawings, indicators, series
+     * visibility/metadata, price formatting, scale bindings/ranges/modes/margins, zoom, and scroll
+     * position are preserved. Semantic follow/unset states are restored instead of pinning effective
+     * theme colors.
+     */
+    reset_style_to_defaults(): void;
+    /**
+     * industry-standard "reset view" in one action: the time scale returns to its configured
+     * defaults (reference `resetTimeScale`) and every pane's price scales re-enable autoscale
+     * (reference pane `resetPriceScale`, the price-axis double-click). A manually contracted or
+     * over-zoomed scale fits the data again on the next frame.
+     */
+    reset_view(): void;
+    price_to_coordinate(price: number): number | null;
+    coordinate_to_price(y: number): number | null;
+    /**
+     * Set the crosshair position within the chart (reference `IChartApi.setCrosshairPosition`). The
+     * crosshair normally follows the user's cursor; setting it explicitly is useful to synchronise
+     * the crosshairs of two separate charts. `time` accepts the same forms as data times.
+     * Divergence: reference throws on an unknown series; here the call is a silent no-op when the
+     * position cannot be applied.
+     */
+    set_crosshair_position(price: number, time: time, series: series_api): void;
+    /** Clear the crosshair position within the chart (reference `IChartApi.clearCrosshairPosition`). */
+    clear_crosshair_position(): void;
+    /** Read the semantic crosshair state for linked-chart coordinators. */
+    crosshair_sync_position(): crosshair_sync_position | null;
+    /** Apply a coordinator-provided crosshair without generating local pointer input. */
+    apply_external_crosshair(position: crosshair_sync_position | null): void;
+    /**
+     * Name the price series this chart shows (for example an instrument identity). Linked charts
+     * with the same key, or both without one, share the whole crosshair; charts with different keys
+     * share only its time line. Keys longer than 128 bytes count as absent.
+     */
+    set_sync_price_key(key: string | null): void;
+    /** Drain bounded semantic synchronization events; callers route them with source/revision. */
+    take_sync_events(): chart_sync_event[];
+    /** Apply a routed semantic event without emitting an echo. */
+    apply_external_sync_event(event: chart_sync_event): boolean;
+    /** Fire on every crosshair move (and once with `point: null` when the cursor leaves). */
+    subscribe_crosshair_move(handler: mouse_event_handler): void;
+    unsubscribe_crosshair_move(handler: mouse_event_handler): void;
+    /** Fire on a click/tap inside the pane. */
+    subscribe_click(handler: mouse_event_handler): void;
+    unsubscribe_click(handler: mouse_event_handler): void;
+    /** Fire once for a secondary click inside a pane. Hosts own any menu or action UI. */
+    subscribe_chart_context(handler: chart_context_handler): void;
+    unsubscribe_chart_context(handler: chart_context_handler): void;
+    /** Fire on a double-click inside the pane (the default fit-content action still runs). */
+    subscribe_dbl_click(handler: dbl_click_handler): void;
+    unsubscribe_dbl_click(handler: dbl_click_handler): void;
+    /**
+     * Fire when a series appears on the chart: {@link chart_api.add_series},
+     * {@link chart_api.add_custom_series}, and every output of
+     * {@link chart_api.add_sma}/{@link chart_api.add_ema}/{@link chart_api.add_bollinger} (one
+     * event per output, so an added indicator is observable the moment it exists). Pair with
+     * {@link series_api.indicator_info} to tell indicator outputs apart from plain series.
+     */
+    subscribe_series_added(handler: series_change_handler): void;
+    unsubscribe_series_added(handler: series_change_handler): void;
+    /**
+     * Fire when a series leaves the chart via {@link chart_api.remove_series} — one event per
+     * tombstoned series, so removing a source series also reports its derived indicator outputs.
+     */
+    subscribe_series_removed(handler: series_change_handler): void;
+    unsubscribe_series_removed(handler: series_change_handler): void;
+    /**
+     * Fire after {@link chart_api.apply_options} applies a patch, receiving that patch. This is
+     * the retokening signal for platform chrome that follows chart options — e.g. the split-grid
+     * divider tracking `rightPriceScale.borderColor` live.
+     */
+    subscribe_options_change(handler: options_change_handler): void;
+    unsubscribe_options_change(handler: options_change_handler): void;
+    /**
+     * Add a drawing (engine-owned drawing object) to a pane (default 0) from its defining anchor
+     * points and repaint. Returns the live handle. Throws when the engine rejects the placement
+     * (stale pane, wrong anchor count for the kind, non-finite anchors).
+     */
+    add_drawing(kind: drawing_kind, points: drawing_point[], options?: Partial<drawing_options>, pane_index?: number): drawing_api;
+    /** Every drawing as live handles, in z-order (bottom first). */
+    drawings(): drawing_api[];
+    /** Return the typed common property schema for a live drawing. */
+    drawing_property_schema(drawing: drawing_api | number): drawing_property_schema;
+    /**
+     * The CSS color the drawing paints for each color property, keyed by property name, with
+     * unset (theme-following) options resolved. Swatches show these; option patches still write
+     * the stored values. Properties without one painted color are omitted.
+     */
+    drawing_painted_colors(drawing: drawing_api | number): Record<string, string>;
+    drawing_kind_options(drawing: drawing_api | number): drawing_kind_options;
+    /** Register a bounded chart-local RGBA8 stamp by name. Re-register to replace its pixels. */
+    register_drawing_icon(name: string, width: number, height: number, pixels: Uint8Array): void;
+    remove_drawing_icon(name: string): boolean;
+    /**
+     * The built-in solid icons, in catalog order. Pass a `name` as an icon stamp's `icon_name`;
+     * `svg` is inline markup (`currentColor` fill) for icon pickers.
+     */
+    builtin_drawing_icons(): builtin_drawing_icon[];
+    /** Return the object-tree snapshot as stable JSON-compatible records. */
+    drawing_object_tree(): unknown[];
+    /** Set host-supplied interval metadata used by interval visibility. */
+    set_drawing_interval(interval: drawing_interval | null): void;
+    /** Copy selected or explicit drawings into a bounded payload. */
+    copy_drawings(ids?: readonly number[]): string;
+    /** Paste a payload into a pane and return newly allocated drawing handles. */
+    paste_drawings(payload: string, pane_index?: number, logical_offset?: number, price_offset?: number): drawing_api[];
+    /** Clone one drawing with a semantic anchor offset. */
+    clone_drawing(drawing: drawing_api | number, logical_offset?: number, price_offset?: number): drawing_api;
+    /** Move a drawing by a bounded relative z-order delta. */
+    move_drawing_z_order(drawing: drawing_api | number, delta: number): boolean;
+    set_drawing_group_visibility(group_id: string, visible: boolean): number;
+    set_drawing_group_locked(group_id: string, locked: boolean): number;
+    /**
+     * Hide or show every drawing at once. Each drawing keeps its own visibility, so drawings hidden
+     * one by one stay hidden when the layer shows again. Hiding disarms the drawing tool, cancels a
+     * drawing in progress, and clears the drawing selection; arming a tool shows the layer again.
+     * This is view state: it is not undoable and not part of exported drawings, so hosts persist it.
+     * Returns whether the layer changed.
+     */
+    set_drawings_hidden(hidden: boolean): boolean;
+    /** Whether the drawing layer is hidden. */
+    drawings_hidden(): boolean;
+    /** Show every drawing hidden on its own as one undo step. Returns how many changed. */
+    show_hidden_drawings(): number;
+    /** How many drawings are hidden on their own, regardless of the drawing layer. */
+    hidden_drawing_count(): number;
+    move_drawing_group(group_id: string, logical_delta: number, price_delta: number): number;
+    /** Apply or export a typed template. */
+    drawing_template(drawing: drawing_api | number, name: string): drawing_template;
+    apply_drawing_template(drawing: drawing_api | number, template: drawing_template): void;
+    /** Export/import revisioned cross-cell drawing payloads. */
+    drawing_sync_payload(source: string): string;
+    apply_drawing_sync_payload(payload: string): boolean;
+    /** Export V1 financial state or V2 general state; neither includes financial market data or runtime caches. */
+    export_state(): chart_state;
+    /**
+     * Atomically restore V1/V2/V3 into a compatible fresh chart.
+     * V2 accepts financial-default or matching general-first targets.
+     * Throws {@link AerisChartsError} on failure.
+     */
+    import_state(state: chart_state | string): persistence_restore_result;
+    /** Remove every drawing (the "clear all" action) and repaint. */
+    clear_drawings(): void;
+    /** Undo one committed drawing create/delete/move/style operation in this chart only. */
+    undo_drawing(): boolean;
+    /** Redo one previously undone drawing operation in this chart only. */
+    redo_drawing(): boolean;
+    /** Whether this chart currently has a drawing operation to undo. */
+    can_undo_drawing(): boolean;
+    /** Whether this chart currently has a drawing operation to redo. */
+    can_redo_drawing(): boolean;
+    /**
+     * Arm an interactive drawing tool (industry-standard), or disarm with `null`. While armed,
+     * pane clicks place the tool's anchors through the engine's creation flow. Multi-click paths
+     * finish on double-click or Enter; freehand tools capture a press-drag. The mouse previews the
+     * pending anchor, Backspace removes the latest path vertex, and Escape cancels. `options`
+     * templates the drawing created this way. Most tools are one-shot and disarm after each commit;
+     * freehand tools (brush, highlighter) stay armed for further strokes. A secondary click or Escape
+     * disarms any tool (listen with {@link chart_api.set_drawing_tool_listener} to sync a toolbar).
+     */
+    set_drawing_tool(tool: drawing_kind | null, options?: Partial<drawing_options>, pane_index?: number): void;
+    /** The armed interactive tool, or `null`. */
+    active_drawing_tool(): drawing_kind | null;
+    /** Register a listener for armed-tool changes, including engine-side disarms. */
+    set_drawing_tool_listener(listener: ((tool: drawing_kind | null) => void) | null): void;
+    /** Additive drawing-tool state subscription used by toolbar/controller features. */
+    subscribe_drawing_tool_change(handler: drawing_tool_change_handler): void;
+    unsubscribe_drawing_tool_change(handler: drawing_tool_change_handler): void;
+    /** Fire after an engine-owned interactive drawing is committed. */
+    subscribe_drawing_created(handler: drawing_created_handler): void;
+    unsubscribe_drawing_created(handler: drawing_created_handler): void;
+    /**
+     * The primary selected drawing (click-to-select; Delete/Backspace removes the selection), or
+     * `null`. With a multi-selection this is the first drawing passed to
+     * {@link chart_api.set_selected_drawings} or the topmost drawing a selection box touched.
+     */
+    selected_drawing(): drawing_api | null;
+    /**
+     * Every selected drawing, in id order. Ctrl/Cmd + drag on empty pane draws a selection box
+     * that selects every drawing it touches.
+     */
+    selected_drawings(): drawing_api[];
+    /** Replace the selection; the first live drawing becomes primary. Unknown ids are ignored. */
+    set_selected_drawings(drawings: readonly (drawing_api | number)[]): void;
+    /** Remove every selected drawing as one undo step. Returns how many were removed. */
+    remove_selected_drawings(): number;
+    /**
+     * Merge one options patch into every selected drawing as one undo step. Each drawing takes
+     * only the settings its kind supports. Returns how many drawings accepted the patch.
+     */
+    apply_selected_drawings_options(options: Partial<drawing_options>): number;
+    /** Lock or unlock every selected drawing as one undo step. Returns how many changed. */
+    set_selected_drawings_locked(locked: boolean): number;
+    /** Show or hide every selected drawing as one undo step. Returns how many changed. */
+    set_selected_drawings_visibility(visible: boolean): number;
+    /** Copy every selected drawing with a semantic anchor offset; the copies become the selection. */
+    clone_selected_drawings(logical_offset?: number, price_offset?: number): drawing_api[];
+    /** Fire after the visible logical range changes. */
+    subscribe_visible_logical_range_change(handler: visible_logical_range_handler): void;
+    unsubscribe_visible_logical_range_change(handler: visible_logical_range_handler): void;
+    /** Fire after the visible time range changes. */
+    subscribe_visible_time_range_change(handler: visible_time_range_handler): void;
+    unsubscribe_visible_time_range_change(handler: visible_time_range_handler): void;
+    /** Manually set the CSS size (and optional devicePixelRatio). Ignored while `autoSize` is on. */
+    resize(width: number, height: number, dpr?: number): void;
+    /** Force a repaint. Normally unnecessary — mutating calls repaint themselves. */
+    render(): void;
+    /**
+     * Snapshot the composed pane and axis layers at their current device-pixel resolution.
+     * `add_top_layer: false` composites the pane only (no axis/input overlay);
+     * `include_crosshair: false` hides the crosshair for the capture (both default `true`).
+     */
+    take_screenshot(add_top_layer?: boolean, include_crosshair?: boolean): HTMLCanvasElement;
+    /** Whether the `autoSize` option is enabled and active (reference `autoSizeActive`). */
+    auto_size_active(): boolean;
+    /** The container element passed to {@link create_chart} (reference `chartElement`). */
+    chart_element(): HTMLElement;
+    /**
+     * Idempotently dispose the chart: stop scheduling, detach listeners/extensions, remove canvases,
+     * release per-chart GPU state, and explicitly free the underlying WASM chart. Later operations
+     * throw a disposed-state error; retaining this JavaScript object does not retain a live engine.
+     */
+    remove(): void;
+}
